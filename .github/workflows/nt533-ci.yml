@@ -1,0 +1,86 @@
+name: NT533 CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nt533-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Documents, links and secret boundaries
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib,re,subprocess
+          root=pathlib.Path('.')
+          for name in ['AGENTS.md','01_KE_HOACH_DO_AN.md','02_CO_SO_LY_THUYET.md']:
+              t=(root/name).read_text(encoding='utf-8-sig')
+              assert '\ufffd' not in t and len(re.findall(r'^```',t,re.M))%2==0,name
+              for link in re.findall(r'\]\(([^)]+)\)',t):
+                  if '://' not in link:
+                      assert (root/link.split('#')[0]).is_file(),(name,link)
+          for f in subprocess.check_output(['git','ls-files','-z']).decode().split('\0'):
+              if not f: continue
+              p=pathlib.Path(f)
+              assert not any(x in p.parts for x in ['.state','node_modules','worker-TDN','worker-DMN','worker-TTN','worker-DHN','worker-HXN']),f
+              assert not (p.name in ['auth.json','.env','team.sqlite','OPERATOR_ACCESS.json'] or p.suffix in ['.pem','.key']),f
+              if p.is_file() and p.stat().st_size<2000000:
+                  t=p.read_text(errors='ignore')
+                  assert not re.search(r'(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9-]{20,}|-----BEGIN (?:RSA |OPENSSH )?PRIVATE KEY-----)',t),f
+          print('Document, relative-link and public-repository boundary checks passed')
+          PY
+      - name: Java service tests when source exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_21_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          count=0
+          for service in catalog inventory order; do
+            if [ -f "services/$service/pom.xml" ]; then
+              test -f "services/$service/mvnw"
+              (cd "services/$service" && bash mvnw -B verify -DfailIfNoTests=true)
+              count=$((count+1))
+            fi
+          done
+          echo "Verified service sources present: $count (missing services are not claimed as implemented)"
+      - name: Analyzer and trace tests when source exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f analysis/requirements.txt ]; then python3 -m pip install -r analysis/requirements.txt; fi
+          if [ -d analysis ]; then
+            test -d analysis/tests
+            test "$(find analysis/tests -name 'test*.py' | wc -l)" -gt 0
+            python3 -m unittest discover -s analysis/tests -v
+          fi
+          if [ -d load-tests/tests ]; then python3 -m unittest discover -s load-tests/tests -v; fi
+      - name: Compose validation when source exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f infra/compose/compose.yaml ]; then
+            docker compose -f infra/compose/compose.yaml config --quiet
+          fi
+          echo "Full 9-replica/fault smoke remains a lab acceptance gate, not claimed by this hosted runner"
+      - name: k6 source validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d load-tests ]; then
+            while IFS= read -r -d '' script; do
+              docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges -v "$PWD:/src:ro" -w /src grafana/k6:1.0.0 inspect "$script"
+            done < <(find load-tests -name '*.js' -type f -print0)
+          fi

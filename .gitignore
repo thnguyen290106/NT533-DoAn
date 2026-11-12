@@ -1,0 +1,25 @@
+# Local credentials and control-plane state
+.state/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.sqlite*
+OPERATOR_ACCESS.json
+lab-credentials.dpapi.json
+/NT533-AI-Team/
+/server/
+/worker-*/
+/outputs/
+# Rebuildable dependencies and caches
+node_modules/
+target/
+.cache/
+.venv/
+__pycache__/
+*.pyc
+*.log
+# Keep raw experiment data private unless explicitly reviewed for publication
+raw/
+results/
