@@ -43,8 +43,75 @@
 - Test cơ chế điều phối phải ghi rõ simulated hay Codex thật, số máy và số login; không gọi test một máy là năm máy vật lý.
 - Dọn test theo manifest chỉ gồm file/container/package do chính lượt test tạo. Không có snapshot thì không cam kết xóa mọi dấu vết/log hệ điều hành hoặc hoàn nguyên VM tuyệt đối.
 
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
-[]
+[
+  {
+    "id": "b9513e18f4738431f4ff86b37a604f2fa1aa6f59a276cef9:code",
+    "taskId": "b9513e18f4738431f4ff86b37a604f2fa1aa6f59a276cef9",
+    "member": "TTN",
+    "pccvId": "D01-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T07:39:35.789Z",
+    "base": "c73d70eac79395d2bbf83821acbe31d592150381",
+    "files": [],
+    "tests": [
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  }
+]
 ```
 <!-- NT533_PROGRESS_END -->
