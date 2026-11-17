@@ -43,8 +43,103 @@
 - Test cơ chế điều phối phải ghi rõ simulated hay Codex thật, số máy và số login; không gọi test một máy là năm máy vật lý.
 - Dọn test theo manifest chỉ gồm file/container/package do chính lượt test tạo. Không có snapshot thì không cam kết xóa mọi dấu vết/log hệ điều hành hoặc hoàn nguyên VM tuyệt đối.
 
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
-[]
+[
+  {
+    "id": "f75a1c3602e24369f1609e52ff61e0637a3806aa89a601af:code",
+    "taskId": "f75a1c3602e24369f1609e52ff61e0637a3806aa89a601af",
+    "member": "DMN",
+    "pccvId": "D01-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T07:47:18.316Z",
+    "base": "c73d70eac79395d2bbf83821acbe31d592150381",
+    "files": [],
+    "tests": [
+      {
+        "program": "pwd",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "pkill",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  }
+]
 ```
 <!-- NT533_PROGRESS_END -->

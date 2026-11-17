@@ -62,6 +62,225 @@ RequestId public: NGINX tạo `$request_id`, ghi đè header ngoài. Ingress lab
 
 Test contract bắt buộc: list đủ ba sản phẩm; P001×2 → 200/200000; P002×3 → 200/750000; P002×4 và P003×1 → 409; P999 → 404; ID sai/quantity 0,11,2.5,"2",null/trường thừa → 400; sai content-type → 415; giả lập từng lỗi downstream → đúng 502/503/504. Kiểm tra cả body, metadata và số lần gọi, không chỉ status.
 
+### Q02-DMN. Thiết kế Catalog và fixture — D01-DMN
+
+Phần này cụ thể hóa Q02, không đổi API v1. Đầu ra D01 là schema, fixture và ca nghiệm thu trong tài liệu; chưa có service hay response HTTP thực tế. Catalog sở hữu tên/giá; Inventory sở hữu tồn kho. P003 vẫn xuất hiện trong list và detail Catalog dù tồn bằng 0; chỉ quote kiểm tra đủ tồn theo Q02.
+
+#### Schema Product
+
+Product có đúng bốn trường bắt buộc dưới đây, không null, không trường thừa. `id` là khóa duy nhất, phân biệt hoa/thường, không trim hay tự đổi chữ hoa. `name` giữ nguyên tên fixture. `price` là số nguyên 64-bit không âm theo đồng (Java `long`), `currency` chỉ nhận `VND`. Khi nạp fixture phải từ chối chuỗi, boolean và token số thập phân/khoa học cho giá; JSON Schema `integer` tự nó chỉ kiểm tra giá trị nguyên về mặt toán học.
+
+Schema này áp dụng cho Product trong fixture/list, chưa chứa metadata request. Response detail thêm `requestId`, `instanceId` cùng cấp với bốn trường Product; list thêm hai trường này cùng cấp với `products`, không thêm vào từng Product. Không thêm `availableStock`, `orderId` hoặc timestamp vào Product.
+
+<!-- D01-DMN:product-schema -->
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NT533-v1 Catalog Product",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "price",
+    "currency"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^P[0-9]{3}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "price": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "currency": {
+      "type": "string",
+      "const": "VND"
+    }
+  }
+}
+```
+
+#### Fixture Catalog duy nhất
+
+Khối JSON sau là fixture thiết kế để đưa vào resource của Catalog khi triển khai service theo Q08. Chỉ có ba ID, không trùng, thứ tự tăng dần; list giữ thứ tự này, detail lấy cùng dữ liệu theo ID. Không tạo giá ngẫu nhiên, cache giá khác ở Order hoặc đưa tồn kho vào fixture Catalog.
+
+<!-- D01-DMN:fixture -->
+```json
+{
+  "products": [
+    {"id": "P001", "name": "Ban phim", "price": 100000, "currency": "VND"},
+    {"id": "P002", "name": "Chuot", "price": 250000, "currency": "VND"},
+    {"id": "P003", "name": "Cap USB", "price": 50000, "currency": "VND"}
+  ]
+}
+```
+
+Đối chiếu Inventory theo Q02: P001/tồn 100, P002/tồn 3, P003/tồn 0. Quote tham chiếu cùng ID và giá: P001×2 = 200000 VND; P002×3 = 750000 VND; P002×4 và P003×1 trả 409. Giá lớn nhất của fixture nhân quantity tối đa 10 vẫn trong miền `long`. Những phép tính này là expected value, chưa phải kết quả gọi Order.
+
+Fixture được đọc một lần khi khởi động, giữ bất biến; kiểm tra kiểu/miền, ID duy nhất, đủ đúng ba bản ghi và giá/tên/currency khớp Q02. Fixture sai làm readiness fail theo Q08, không bỏ qua bản ghi lỗi hay trả danh sách rỗng. Khi có source, commit fixture cùng source và đối chiếu SHA-256 byte file giữa C1–C3; khác checksum phải chặn chạy đo. SHA-256 khối JSON trong kiểm tra D01 dưới đây chỉ nhận diện fixture tài liệu (UTF-8/LF, có LF cuối), chưa chứng minh các replica đã dùng cùng file.
+
+#### Ba ca nghiệm thu Catalog
+
+Điều kiện chung cho kiểm thử HTTP sau này: fixture hợp lệ đã nạp, instance minh họa C1, requestId minh họa được ingress truyền xuống là `0123456789abcdef0123456789abcdef`; không query. Instance và requestId thực tế lấy từ môi trường/request đang kiểm, luôn đối chiếu body với header. Message 404 bên dưới là ví dụ thông báo ngắn; mã lỗi và cấu trúc theo Q02 là bắt buộc.
+
+| Case | Ý nghĩa | Kỳ vọng |
+|---|---|---|
+| CAT-01 | ID P001 hợp lệ và có fixture | 200, đúng tên/giá/currency, không bọc `data` |
+| CAT-02 | ID p001 sai định dạng (chữ thường) | 400 `INVALID_INPUT`, không tự sửa thành P001 |
+| CAT-03 | ID P999 đúng định dạng nhưng không có fixture | 404 `PRODUCT_NOT_FOUND`, không nhầm với sai định dạng |
+
+<!-- D01-DMN:cases -->
+```json
+[
+  {
+    "caseId": "CAT-01", "method": "GET", "path": "/api/catalog/products/P001",
+    "expectedStatus": 200,
+    "expectedBody": {"id":"P001","name":"Ban phim","price":100000,"currency":"VND","requestId":"0123456789abcdef0123456789abcdef","instanceId":"C1"},
+    "expectedHeaders": {"X-Request-ID":"0123456789abcdef0123456789abcdef","X-Instance-ID":"C1"}
+  },
+  {
+    "caseId": "CAT-02", "method": "GET", "path": "/api/catalog/products/p001",
+    "expectedStatus": 400,
+    "expectedBody": {"error":{"code":"INVALID_INPUT","message":"Invalid request"},"requestId":"0123456789abcdef0123456789abcdef","instanceId":"C1"},
+    "expectedHeaders": {"X-Request-ID":"0123456789abcdef0123456789abcdef","X-Instance-ID":"C1"}
+  },
+  {
+    "caseId": "CAT-03", "method": "GET", "path": "/api/catalog/products/P999",
+    "expectedStatus": 404,
+    "expectedBody": {"error":{"code":"PRODUCT_NOT_FOUND","message":"Product not found"},"requestId":"0123456789abcdef0123456789abcdef","instanceId":"C1"},
+    "expectedHeaders": {"X-Request-ID":"0123456789abcdef0123456789abcdef","X-Instance-ID":"C1"}
+  }
+]
+```
+
+Khi triển khai còn phải kiểm tra list trả đủ ba Product/thứ tự, detail từng ID khớp list (kể cả P003), query thừa → 400, route lạ → 404, method sai → 405/`Allow`, header/body metadata, cùng fixture trên mọi replica theo Q02/Q10. Ba ca trên là bộ mô tả nghiệm thu D01, không thay toàn bộ contract test.
+
+#### Kiểm tra thiết kế có thể chạy lại trên Ubuntu
+
+Lệnh sau đọc và chạy khối Python `D01-DMN-CHECK` ngay trong tài liệu, chỉ đọc hai MD; không cần dependency ngoài Python 3 stdlib. Kiểm tra đồng bộ hai bản thiết kế, schema, fixture so với bảng API Q02, giá/tổng, ba ca kỳ vọng và 11 Product lỗi. Đây là kiểm tra dữ liệu thiết kế, không phải trình xác thực JSON Schema tổng quát hay kiểm thử HTTP.
+
+```bash
+python3 -c 'from pathlib import Path; t=Path("01_KE_HOACH_DO_AN.md").read_text(encoding="utf-8"); exec("# D01-DMN-CHECK" + t.split("```python\n# D01-DMN-CHECK",1)[1].split("```",1)[0])'
+```
+
+<!-- D01-DMN:check -->
+```python
+# D01-DMN-CHECK: kiểm tra thiết kế tài liệu, không gọi HTTP
+import copy
+import hashlib
+import json
+import re
+from pathlib import Path
+
+paths = ("01_KE_HOACH_DO_AN.md", "02_CO_SO_LY_THUYET.md")
+docs = [Path(p).read_text(encoding="utf-8") for p in paths]
+def section(text):
+    return re.split(r"^### Q03\.", text.split("### Q02-DMN. ", 1)[1], maxsplit=1, flags=re.M)[0]
+assert section(docs[0]) == section(docs[1]), "D01-DMN sections differ"
+def block(text, label):
+    pattern = r"<!-- D01-DMN:" + re.escape(label) + r" -->\n\x60{3}json\n(.*?)\n\x60{3}"
+    match = re.search(pattern, text, re.S)
+    assert match, label
+    return match.group(1)
+schema = json.loads(block(docs[0], "product-schema"))
+fixture_text = block(docs[0], "fixture")
+fixture = json.loads(fixture_text)
+cases = json.loads(block(docs[0], "cases"))
+fields = {"id", "name", "price", "currency"}
+assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+assert schema["type"] == "object" and schema["additionalProperties"] is False
+assert set(schema["required"]) == set(schema["properties"]) == fields
+assert schema["properties"] == {
+    "id": {"type": "string", "pattern": "^P[0-9]{3}$"},
+    "name": {"type": "string", "minLength": 1},
+    "price": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "currency": {"type": "string", "const": "VND"},
+}
+# Bộ kiểm tra stdlib chỉ cho Product này, không phải engine JSON Schema tổng quát.
+def product_ok(p):
+    return (type(p) is dict and set(p) == fields
+        and type(p["id"]) is str and re.fullmatch(r"P[0-9]{3}", p["id"]) is not None
+        and type(p["name"]) is str and len(p["name"]) >= 1
+        and type(p["price"]) is int and 0 <= p["price"] <= 9223372036854775807
+        and p["currency"] == "VND")
+expected = [
+    {"id": "P001", "name": "Ban phim", "price": 100000, "currency": "VND"},
+    {"id": "P002", "name": "Chuot", "price": 250000, "currency": "VND"},
+    {"id": "P003", "name": "Cap USB", "price": 50000, "currency": "VND"},
+]
+assert set(fixture) == {"products"} and fixture["products"] == expected
+assert all(product_ok(p) for p in fixture["products"])
+ids = [p["id"] for p in fixture["products"]]
+assert ids == sorted(set(ids)) and len(ids) == 3
+for doc in docs:
+    q02 = doc.split("### Q02.", 1)[1].split("### Q02-DMN.", 1)[0]
+    row = next(line for line in q02.splitlines() if "| `GET /api/catalog/products` |" in line)
+    assert json.loads(re.search(r"`(\{\"products\":.*?\})`", row).group(1)) == fixture
+products = {p["id"]: p for p in fixture["products"]}
+assert products["P001"]["price"] * 2 == 200000
+assert products["P002"]["price"] * 3 == 750000
+assert all(p["price"] * 10 <= 9223372036854775807 for p in products.values())
+assert [c["caseId"] for c in cases] == ["CAT-01", "CAT-02", "CAT-03"]
+assert [c["path"].rsplit("/", 1)[1] for c in cases] == ["P001", "p001", "P999"]
+for c in cases:
+    assert c["method"] == "GET" and c["path"].startswith("/api/catalog/products/")
+    pid = c["path"].rsplit("/", 1)[1]
+    status = 400 if re.fullmatch(r"P[0-9]{3}", pid) is None else (200 if pid in products else 404)
+    assert c["expectedStatus"] == status
+    body = c["expectedBody"]
+    assert re.fullmatch(r"[0-9a-f]{32}", body["requestId"])
+    assert body["instanceId"] == "C1"
+    assert c["expectedHeaders"] == {"X-Request-ID": body["requestId"], "X-Instance-ID": body["instanceId"]}
+    payload = {k: v for k, v in body.items() if k not in ("requestId", "instanceId")}
+    if status == 200:
+        assert payload == products[pid] and product_ok(payload)
+    else:
+        assert set(payload) == {"error"} and set(payload["error"]) == {"code", "message"}
+        assert payload["error"]["code"] == {400: "INVALID_INPUT", 404: "PRODUCT_NOT_FOUND"}[status]
+        assert type(payload["error"]["message"]) is str and payload["error"]["message"]
+bad = []
+for key, value in [("id", "p001"), ("id", "P001\n"), ("price", True),
+                   ("price", "100000"), ("price", 100000.0), ("price", -1),
+                   ("price", 9223372036854775808), ("name", ""), ("currency", "USD")]:
+    item = copy.deepcopy(expected[0])
+    item[key] = value
+    bad.append(item)
+bad.append({**expected[0], "availableStock": 100})
+bad.append({k: v for k, v in expected[0].items() if k != "price"})
+assert all(not product_ok(p) for p in bad)
+print("OK: 2 documents; Product schema; 3 fixed products; Q02 parity; 3 Catalog cases; 11 invalid products rejected; quote arithmetic")
+print("fixture-sha256 (UTF-8/LF + final LF): " + hashlib.sha256((fixture_text + "\n").encode("utf-8")).hexdigest())
+```
+
+#### Tiến độ D01-DMN và ghi chú cho cả ba MD
+
+Đã hoàn thành sản phẩm thiết kế Catalog/fixture và ba ca mô tả nghiệm thu của D01-DMN trong workspace Ubuntu của task. Không có service để kiểm thử HTTP; không có benchmark, build Java hay triển khai ứng dụng trong phần việc này. Mã kiểm tra dùng Python 3.12.3 stdlib trên Linux qua vm_exec; không cài thêm công cụ.
+
+Lần kiểm tra được ghi tự động từ kết quả lệnh chạy thật lúc 2026-11-17T07:45:34Z. Lệnh D01-DMN-CHECK được công bố ngay trên; stdout/stderr và exit code dưới đây là kiểm tra thiết kế, không phải response HTTP.
+
+stdout:
+~~~text
+OK: 2 documents; Product schema; 3 fixed products; Q02 parity; 3 Catalog cases; 11 invalid products rejected; quote arithmetic
+fixture-sha256 (UTF-8/LF + final LF): bd76926a87fd55258a567c248146ff215632ae323bd276fcc7a76eae227d850e
+~~~
+
+stderr:
+~~~text
+~~~
+
+Exit code D01-DMN-CHECK: 0. Lệnh bổ sung: `git diff --check`; exit code: 0, stdout/stderr rỗng. Phần bổ sung dùng LF; nội dung gốc và khối tiến độ hệ thống được giữ nguyên.
+
+Ghi chú để bộ điều phối cập nhật bằng chứng vào **cả ba MD** trước commit: `01_KE_HOACH_DO_AN.md` giữ schema/fixture/case và kết quả kiểm tra; `02_CO_SO_LY_THUYET.md` giữ bản thiết kế đồng bộ, giải thích fixture bất biến và ranh giới Catalog/Inventory; `AGENTS.md` ghi D01-DMN đã kiểm tra thiết kế đạt, chưa có bằng chứng HTTP/runtime/deploy. Worker chỉ sửa hai MD trong phạm vi task, không sửa thân AGENTS.md hay khối JSON hệ thống; bộ điều phối xác minh và hợp nhất phần tiến độ có cấu trúc. Đã trao đổi với TDN/TTN/HXN/DHN; TTN xác nhận tồn 100/3/0, TDN xử lý câu tóm tắt 400/404 trong task riêng.
+
+Bàn giao tiếp theo trong pipeline của task hiện tại: bộ điều phối kiểm tra, cập nhật bằng chứng ba MD, commit/PR/review đúng HEAD/CI/merge tuần tự. Chưa có xác nhận các bước này hoàn tất. Không chuyển sang task/ngày mới.
+
 ### Q03. Stack, topology, tài nguyên và config đã chốt
 
 Chọn Spring MVC đồng bộ, Java 21, Maven Wrapper 3.9.9, Spring Boot 3.5.7; dùng BOM của Boot, không tự trộn phiên bản Spring. Image lab chọn NGINX OSS 1.28.3, k6 1.0.0, Prometheus 3.2.1, Grafana 11.6.0; analyzer Python 3.12 với stdlib, chart dùng matplotlib 3.10.1. Đây là baseline tái lập trong mạng cô lập, **không phải tuyên bố các bản này mới nhất/an toàn để đưa production**. Trước lần build phải rà advisory, nếu cần nâng patch thì cập nhật cả hai tài liệu và chạy smoke trước pilot; không đổi giữa các run chính thức. Java patch, OS/Docker/Compose thực tế và image digest chỉ được ghi từ lệnh trên HOST, không tự điền giá trị giả. `versions.lock` và manifest giữ version + digest; không dùng `latest`.
@@ -639,8 +858,103 @@ Không tự hạ ngưỡng SLO sau khi thấy kết quả. Không loại lỗi d
 
 **Việc làm ngay:** triển khai theo Q01–Q07; nhóm trưởng xác nhận ngày bắt đầu thật nếu khác lịch Excel, gửi mô tả advanced và tạo issue từ PCCV; Nhật kiểm kê HOST/LOADGEN. Không họp để chọn lại RQ/API/scope đã ghi. D8 đo các giá trị còn phụ thuộc phần cứng bằng quy tắc Q05, không bịa số để đóng task.
 
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
-[]
+[
+  {
+    "id": "f75a1c3602e24369f1609e52ff61e0637a3806aa89a601af:code",
+    "taskId": "f75a1c3602e24369f1609e52ff61e0637a3806aa89a601af",
+    "member": "DMN",
+    "pccvId": "D01-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T07:47:18.316Z",
+    "base": "c73d70eac79395d2bbf83821acbe31d592150381",
+    "files": [],
+    "tests": [
+      {
+        "program": "pwd",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "pkill",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  }
+]
 ```
 <!-- NT533_PROGRESS_END -->
