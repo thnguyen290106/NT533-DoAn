@@ -49,6 +49,225 @@ RequestId public: NGINX tạo `$request_id`, ghi đè header ngoài. Ingress lab
 
 Test contract bắt buộc: list đủ ba sản phẩm; P001×2 → 200/200000; P002×3 → 200/750000; P002×4 và P003×1 → 409; P999 → 404; ID sai/quantity 0,11,2.5,"2",null/trường thừa → 400; sai content-type → 415; giả lập từng lỗi downstream → đúng 502/503/504. Kiểm tra cả body, metadata và số lần gọi, không chỉ status.
 
+### Q02-DMN. Thiết kế Catalog và fixture — D01-DMN
+
+Phần này cụ thể hóa Q02, không đổi API v1. Đầu ra D01 là schema, fixture và ca nghiệm thu trong tài liệu; chưa có service hay response HTTP thực tế. Catalog sở hữu tên/giá; Inventory sở hữu tồn kho. P003 vẫn xuất hiện trong list và detail Catalog dù tồn bằng 0; chỉ quote kiểm tra đủ tồn theo Q02.
+
+#### Schema Product
+
+Product có đúng bốn trường bắt buộc dưới đây, không null, không trường thừa. `id` là khóa duy nhất, phân biệt hoa/thường, không trim hay tự đổi chữ hoa. `name` giữ nguyên tên fixture. `price` là số nguyên 64-bit không âm theo đồng (Java `long`), `currency` chỉ nhận `VND`. Khi nạp fixture phải từ chối chuỗi, boolean và token số thập phân/khoa học cho giá; JSON Schema `integer` tự nó chỉ kiểm tra giá trị nguyên về mặt toán học.
+
+Schema này áp dụng cho Product trong fixture/list, chưa chứa metadata request. Response detail thêm `requestId`, `instanceId` cùng cấp với bốn trường Product; list thêm hai trường này cùng cấp với `products`, không thêm vào từng Product. Không thêm `availableStock`, `orderId` hoặc timestamp vào Product.
+
+<!-- D01-DMN:product-schema -->
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NT533-v1 Catalog Product",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "price",
+    "currency"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^P[0-9]{3}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "price": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "currency": {
+      "type": "string",
+      "const": "VND"
+    }
+  }
+}
+```
+
+#### Fixture Catalog duy nhất
+
+Khối JSON sau là fixture thiết kế để đưa vào resource của Catalog khi triển khai service theo Q08. Chỉ có ba ID, không trùng, thứ tự tăng dần; list giữ thứ tự này, detail lấy cùng dữ liệu theo ID. Không tạo giá ngẫu nhiên, cache giá khác ở Order hoặc đưa tồn kho vào fixture Catalog.
+
+<!-- D01-DMN:fixture -->
+```json
+{
+  "products": [
+    {"id": "P001", "name": "Ban phim", "price": 100000, "currency": "VND"},
+    {"id": "P002", "name": "Chuot", "price": 250000, "currency": "VND"},
+    {"id": "P003", "name": "Cap USB", "price": 50000, "currency": "VND"}
+  ]
+}
+```
+
+Đối chiếu Inventory theo Q02: P001/tồn 100, P002/tồn 3, P003/tồn 0. Quote tham chiếu cùng ID và giá: P001×2 = 200000 VND; P002×3 = 750000 VND; P002×4 và P003×1 trả 409. Giá lớn nhất của fixture nhân quantity tối đa 10 vẫn trong miền `long`. Những phép tính này là expected value, chưa phải kết quả gọi Order.
+
+Fixture được đọc một lần khi khởi động, giữ bất biến; kiểm tra kiểu/miền, ID duy nhất, đủ đúng ba bản ghi và giá/tên/currency khớp Q02. Fixture sai làm readiness fail theo Q08, không bỏ qua bản ghi lỗi hay trả danh sách rỗng. Khi có source, commit fixture cùng source và đối chiếu SHA-256 byte file giữa C1–C3; khác checksum phải chặn chạy đo. SHA-256 khối JSON trong kiểm tra D01 dưới đây chỉ nhận diện fixture tài liệu (UTF-8/LF, có LF cuối), chưa chứng minh các replica đã dùng cùng file.
+
+#### Ba ca nghiệm thu Catalog
+
+Điều kiện chung cho kiểm thử HTTP sau này: fixture hợp lệ đã nạp, instance minh họa C1, requestId minh họa được ingress truyền xuống là `0123456789abcdef0123456789abcdef`; không query. Instance và requestId thực tế lấy từ môi trường/request đang kiểm, luôn đối chiếu body với header. Message 404 bên dưới là ví dụ thông báo ngắn; mã lỗi và cấu trúc theo Q02 là bắt buộc.
+
+| Case | Ý nghĩa | Kỳ vọng |
+|---|---|---|
+| CAT-01 | ID P001 hợp lệ và có fixture | 200, đúng tên/giá/currency, không bọc `data` |
+| CAT-02 | ID p001 sai định dạng (chữ thường) | 400 `INVALID_INPUT`, không tự sửa thành P001 |
+| CAT-03 | ID P999 đúng định dạng nhưng không có fixture | 404 `PRODUCT_NOT_FOUND`, không nhầm với sai định dạng |
+
+<!-- D01-DMN:cases -->
+```json
+[
+  {
+    "caseId": "CAT-01", "method": "GET", "path": "/api/catalog/products/P001",
+    "expectedStatus": 200,
+    "expectedBody": {"id":"P001","name":"Ban phim","price":100000,"currency":"VND","requestId":"0123456789abcdef0123456789abcdef","instanceId":"C1"},
+    "expectedHeaders": {"X-Request-ID":"0123456789abcdef0123456789abcdef","X-Instance-ID":"C1"}
+  },
+  {
+    "caseId": "CAT-02", "method": "GET", "path": "/api/catalog/products/p001",
+    "expectedStatus": 400,
+    "expectedBody": {"error":{"code":"INVALID_INPUT","message":"Invalid request"},"requestId":"0123456789abcdef0123456789abcdef","instanceId":"C1"},
+    "expectedHeaders": {"X-Request-ID":"0123456789abcdef0123456789abcdef","X-Instance-ID":"C1"}
+  },
+  {
+    "caseId": "CAT-03", "method": "GET", "path": "/api/catalog/products/P999",
+    "expectedStatus": 404,
+    "expectedBody": {"error":{"code":"PRODUCT_NOT_FOUND","message":"Product not found"},"requestId":"0123456789abcdef0123456789abcdef","instanceId":"C1"},
+    "expectedHeaders": {"X-Request-ID":"0123456789abcdef0123456789abcdef","X-Instance-ID":"C1"}
+  }
+]
+```
+
+Khi triển khai còn phải kiểm tra list trả đủ ba Product/thứ tự, detail từng ID khớp list (kể cả P003), query thừa → 400, route lạ → 404, method sai → 405/`Allow`, header/body metadata, cùng fixture trên mọi replica theo Q02/Q10. Ba ca trên là bộ mô tả nghiệm thu D01, không thay toàn bộ contract test.
+
+#### Kiểm tra thiết kế có thể chạy lại trên Ubuntu
+
+Lệnh sau đọc và chạy khối Python `D01-DMN-CHECK` ngay trong tài liệu, chỉ đọc hai MD; không cần dependency ngoài Python 3 stdlib. Kiểm tra đồng bộ hai bản thiết kế, schema, fixture so với bảng API Q02, giá/tổng, ba ca kỳ vọng và 11 Product lỗi. Đây là kiểm tra dữ liệu thiết kế, không phải trình xác thực JSON Schema tổng quát hay kiểm thử HTTP.
+
+```bash
+python3 -c 'from pathlib import Path; t=Path("01_KE_HOACH_DO_AN.md").read_text(encoding="utf-8"); exec("# D01-DMN-CHECK" + t.split("```python\n# D01-DMN-CHECK",1)[1].split("```",1)[0])'
+```
+
+<!-- D01-DMN:check -->
+```python
+# D01-DMN-CHECK: kiểm tra thiết kế tài liệu, không gọi HTTP
+import copy
+import hashlib
+import json
+import re
+from pathlib import Path
+
+paths = ("01_KE_HOACH_DO_AN.md", "02_CO_SO_LY_THUYET.md")
+docs = [Path(p).read_text(encoding="utf-8") for p in paths]
+def section(text):
+    return re.split(r"^### Q03\.", text.split("### Q02-DMN. ", 1)[1], maxsplit=1, flags=re.M)[0]
+assert section(docs[0]) == section(docs[1]), "D01-DMN sections differ"
+def block(text, label):
+    pattern = r"<!-- D01-DMN:" + re.escape(label) + r" -->\n\x60{3}json\n(.*?)\n\x60{3}"
+    match = re.search(pattern, text, re.S)
+    assert match, label
+    return match.group(1)
+schema = json.loads(block(docs[0], "product-schema"))
+fixture_text = block(docs[0], "fixture")
+fixture = json.loads(fixture_text)
+cases = json.loads(block(docs[0], "cases"))
+fields = {"id", "name", "price", "currency"}
+assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+assert schema["type"] == "object" and schema["additionalProperties"] is False
+assert set(schema["required"]) == set(schema["properties"]) == fields
+assert schema["properties"] == {
+    "id": {"type": "string", "pattern": "^P[0-9]{3}$"},
+    "name": {"type": "string", "minLength": 1},
+    "price": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "currency": {"type": "string", "const": "VND"},
+}
+# Bộ kiểm tra stdlib chỉ cho Product này, không phải engine JSON Schema tổng quát.
+def product_ok(p):
+    return (type(p) is dict and set(p) == fields
+        and type(p["id"]) is str and re.fullmatch(r"P[0-9]{3}", p["id"]) is not None
+        and type(p["name"]) is str and len(p["name"]) >= 1
+        and type(p["price"]) is int and 0 <= p["price"] <= 9223372036854775807
+        and p["currency"] == "VND")
+expected = [
+    {"id": "P001", "name": "Ban phim", "price": 100000, "currency": "VND"},
+    {"id": "P002", "name": "Chuot", "price": 250000, "currency": "VND"},
+    {"id": "P003", "name": "Cap USB", "price": 50000, "currency": "VND"},
+]
+assert set(fixture) == {"products"} and fixture["products"] == expected
+assert all(product_ok(p) for p in fixture["products"])
+ids = [p["id"] for p in fixture["products"]]
+assert ids == sorted(set(ids)) and len(ids) == 3
+for doc in docs:
+    q02 = doc.split("### Q02.", 1)[1].split("### Q02-DMN.", 1)[0]
+    row = next(line for line in q02.splitlines() if "| `GET /api/catalog/products` |" in line)
+    assert json.loads(re.search(r"`(\{\"products\":.*?\})`", row).group(1)) == fixture
+products = {p["id"]: p for p in fixture["products"]}
+assert products["P001"]["price"] * 2 == 200000
+assert products["P002"]["price"] * 3 == 750000
+assert all(p["price"] * 10 <= 9223372036854775807 for p in products.values())
+assert [c["caseId"] for c in cases] == ["CAT-01", "CAT-02", "CAT-03"]
+assert [c["path"].rsplit("/", 1)[1] for c in cases] == ["P001", "p001", "P999"]
+for c in cases:
+    assert c["method"] == "GET" and c["path"].startswith("/api/catalog/products/")
+    pid = c["path"].rsplit("/", 1)[1]
+    status = 400 if re.fullmatch(r"P[0-9]{3}", pid) is None else (200 if pid in products else 404)
+    assert c["expectedStatus"] == status
+    body = c["expectedBody"]
+    assert re.fullmatch(r"[0-9a-f]{32}", body["requestId"])
+    assert body["instanceId"] == "C1"
+    assert c["expectedHeaders"] == {"X-Request-ID": body["requestId"], "X-Instance-ID": body["instanceId"]}
+    payload = {k: v for k, v in body.items() if k not in ("requestId", "instanceId")}
+    if status == 200:
+        assert payload == products[pid] and product_ok(payload)
+    else:
+        assert set(payload) == {"error"} and set(payload["error"]) == {"code", "message"}
+        assert payload["error"]["code"] == {400: "INVALID_INPUT", 404: "PRODUCT_NOT_FOUND"}[status]
+        assert type(payload["error"]["message"]) is str and payload["error"]["message"]
+bad = []
+for key, value in [("id", "p001"), ("id", "P001\n"), ("price", True),
+                   ("price", "100000"), ("price", 100000.0), ("price", -1),
+                   ("price", 9223372036854775808), ("name", ""), ("currency", "USD")]:
+    item = copy.deepcopy(expected[0])
+    item[key] = value
+    bad.append(item)
+bad.append({**expected[0], "availableStock": 100})
+bad.append({k: v for k, v in expected[0].items() if k != "price"})
+assert all(not product_ok(p) for p in bad)
+print("OK: 2 documents; Product schema; 3 fixed products; Q02 parity; 3 Catalog cases; 11 invalid products rejected; quote arithmetic")
+print("fixture-sha256 (UTF-8/LF + final LF): " + hashlib.sha256((fixture_text + "\n").encode("utf-8")).hexdigest())
+```
+
+#### Tiến độ D01-DMN và ghi chú cho cả ba MD
+
+Đã hoàn thành sản phẩm thiết kế Catalog/fixture và ba ca mô tả nghiệm thu của D01-DMN trong workspace Ubuntu của task. Không có service để kiểm thử HTTP; không có benchmark, build Java hay triển khai ứng dụng trong phần việc này. Mã kiểm tra dùng Python 3.12.3 stdlib trên Linux qua vm_exec; không cài thêm công cụ.
+
+Lần kiểm tra được ghi tự động từ kết quả lệnh chạy thật lúc 2026-11-17T07:45:34Z. Lệnh D01-DMN-CHECK được công bố ngay trên; stdout/stderr và exit code dưới đây là kiểm tra thiết kế, không phải response HTTP.
+
+stdout:
+~~~text
+OK: 2 documents; Product schema; 3 fixed products; Q02 parity; 3 Catalog cases; 11 invalid products rejected; quote arithmetic
+fixture-sha256 (UTF-8/LF + final LF): bd76926a87fd55258a567c248146ff215632ae323bd276fcc7a76eae227d850e
+~~~
+
+stderr:
+~~~text
+~~~
+
+Exit code D01-DMN-CHECK: 0. Lệnh bổ sung: `git diff --check`; exit code: 0, stdout/stderr rỗng. Phần bổ sung dùng LF; nội dung gốc và khối tiến độ hệ thống được giữ nguyên.
+
+Ghi chú để bộ điều phối cập nhật bằng chứng vào **cả ba MD** trước commit: `01_KE_HOACH_DO_AN.md` giữ schema/fixture/case và kết quả kiểm tra; `02_CO_SO_LY_THUYET.md` giữ bản thiết kế đồng bộ, giải thích fixture bất biến và ranh giới Catalog/Inventory; `AGENTS.md` ghi D01-DMN đã kiểm tra thiết kế đạt, chưa có bằng chứng HTTP/runtime/deploy. Worker chỉ sửa hai MD trong phạm vi task, không sửa thân AGENTS.md hay khối JSON hệ thống; bộ điều phối xác minh và hợp nhất phần tiến độ có cấu trúc. Đã trao đổi với TDN/TTN/HXN/DHN; TTN xác nhận tồn 100/3/0, TDN xử lý câu tóm tắt 400/404 trong task riêng.
+
+Bàn giao tiếp theo trong pipeline của task hiện tại: bộ điều phối kiểm tra, cập nhật bằng chứng ba MD, commit/PR/review đúng HEAD/CI/merge tuần tự. Chưa có xác nhận các bước này hoàn tất. Không chuyển sang task/ngày mới.
+
 #### Q02-TTN. Hợp đồng Inventory dùng cho triển khai D01-TTN
 
 Phần này cụ thể hóa Q02, không thêm API ghi. Inventory chỉ sở hữu `productId` và `availableStock`; không gọi Catalog/Order, không reservation hoặc trừ tồn. `availableStock` là JSON integer không âm, đơn vị **sản phẩm**; không dùng chuỗi, float, phần trăm hoặc giá tiền. Fixture đọc một lần, bất biến và giống nhau trên mọi replica; fixture thiếu/sai kiểu/trùng ID làm readiness fail theo Q08.
@@ -85,6 +304,103 @@ Tên container `catalog-1..3`, `inventory-1..3`, `order-1..3`; instance `C1..3`,
 Mỗi JVM: 0,5 CPU, 512 MiB, `-Xms256m -Xmx256m`, G1, 32 platform worker threads, accept-count 100, virtual threads off. NGINX: 1 CPU/256 MiB, 2 worker, worker_connections 4096; mọi upstream zone 64k, equal weight=1, keepalive 32, `max_fails=1 fail_timeout=5s`. Monitoring tổng 1 CPU/1 GiB; I4 cùng quota JVM. Đo không swap/OOM, không CPU contention bất thường; nếu footprint không đạt thì dừng preflight và sửa đồng đều trước pilot, không đổi quota riêng một thuật toán.
 
 HTTP/1.1, cache off, `proxy_buffering off`, `proxy_next_upstream off`, connect 200 ms, send/read 3 s, client k6 timeout 5 s, keepalive bật đồng đều. Order: mỗi downstream connect ≤200 ms nằm trong call deadline tổng 1 s; toàn quote deadline 2,5 s, không chỉ dựa vào socket read timeout. Healthcheck readiness 5 s/lần, timeout 2 s, start-period 60 s, 3 retries; runner yêu cầu 3 lần ready liên tiếp trước warm-up, abort sau 120 s. Probe Compose không phải health-check chủ động của NGINX OSS; NGINX vẫn dùng passive failure handling.
+
+#### D01-DHN — Bảng tài nguyên và sơ đồ mạng (17/11/2026)
+
+**Trạng thái:** bảng quota và topology dưới đây là thiết kế theo Q03/Q04, chưa phải triển khai hay kiểm kê phần cứng đã đạt. Task chỉ sửa thân hai Markdown; giữ nguyên AGENTS.md, nội dung các thành viên và JSON tiến độ hệ thống. Không áp ngưỡng CPU/RAM/disk cũ để chặn bắt đầu v2.
+
+**Máy được broker phân:** `get_lab` của task D01-DHN trả role `host`, workspace `/workspace`, HOST `10.70.197.121`, LOADGEN riêng `10.70.197.172`, `toolsReady.host/loadgen=true`. Đây là metadata phân máy, chưa chứng minh SSH/LAN, OS, cấu hình máy, Docker daemon hay năng lực phát tải. HXN đã xác nhận vai trò LOADGEN trong workspace riêng, chưa có receipt host-inspect thực.
+
+| Hạng mục kiểm kê | HOST | LOADGEN | Bằng chứng / phần còn thiếu |
+|---|---|---|---|
+| Vai trò | Docker Compose, NGINX, backend, monitoring | k6, trace và thu raw ở máy riêng | Broker phân vai trò; topology dự kiến `two-host` |
+| Địa chỉ broker cấp | `10.70.197.121` | `10.70.197.172` | Không biến thành cấu hình firewall/Real-IP trước khi xác minh peer thực |
+| Ubuntu/OS/kernel/kiến trúc | Chưa kiểm kê host thực | Chưa kiểm kê host thực | Cần adapter read-only trên từng Ubuntu |
+| CPU logic/quota, RAM tổng/available, swap | Chưa đo | Chưa đo | Không lấy CPU/RAM của container làm số đo host |
+| Disk tổng/trống và filesystem vùng NT533 | Chưa đo | Chưa đo | Không dùng số đo từ đợt cũ |
+| Docker Engine/server và Compose | Chưa xác minh | Chưa xác minh công cụ cần dùng | `toolsReady=true` không thay `docker version/info` và `docker compose version` |
+| Java patch, image ID/digest, config hash | Chưa build/thu | k6 host chưa xác minh | Không tự điền digest hoặc gọi bản thiết kế là bản đã chạy |
+| LAN route/source peer và cổng thực | Chưa xác minh | Chưa xác minh | Chưa xác nhận trust /32 hoặc rule firewall đã áp dụng |
+| Năng lực phát tải | Chưa chạy backend | Chưa pilot CPU/RAM/VU/dropped | Chưa xác nhận N/R_ref/VU, G0/G2/G3 |
+
+**Budget quota dự kiến (MiB, heap nằm trong RAM quota):**
+
+| Thành phần | JVM | CPU | RAM MiB | Heap tối đa MiB |
+|---|---:|---:|---:|---:|
+| Catalog C1–C3 | 3 | 1,5 | 1.536 | 768 |
+| Inventory I1–I3 | 3 | 1,5 | 1.536 | 768 |
+| Order O1–O3 | 3 | 1,5 | 1.536 | 768 |
+| Backend thường | 9 | 4,5 | 4.608 | 2.304 |
+| NGINX | 0 | 1 | 256 | — |
+| Prometheus + Grafana (budget chung) | 0 | 1 | 1.024 | — |
+| Tổng HOST thường | 9 | 6,5 | 5.888 | 2.304 |
+| I4 tạm, chỉ A4/profile `mapping` | 1 | 0,5 | 512 | 256 |
+| Tổng HOST khi A4 có I4 | 10 | 7 | 6.400 | 2.560 |
+
+Mỗi JVM giữ `-Xms256m -Xmx256m`, G1, 32 platform worker threads, accept-count 100, virtual threads off. Giới hạn 512 MiB phải chứa heap, metaspace, thread stack và native memory; không cộng heap lần nữa. Tổng quota chưa dự trù OS, page cache, Docker/overhead ngoài container, lưu raw và chi phí phát tải. Monitoring 1 CPU/1 GiB là budget chung; chưa có số đo footprint. Pilot phải quan sát OOM/swap/throttling/client contention thật; không giảm quota/replica riêng một thuật toán để làm test đạt. I4 chỉ vào membership A4 3→4→3, không thêm vào chín JVM thường.
+
+**Sơ đồ mạng dự kiến, chưa phải bằng chứng network/container đã tạo:**
+
+```mermaid
+flowchart LR
+  LG["LOADGEN riêng: k6 / trace / raw"]
+  API["NGINX API :8080"]
+  LAB["NGINX lab :8081; allowlist LOADGEN"]
+  INT["NGINX nội bộ :8083; không publish"]
+  C["catalog-1..3 / C1..C3"]
+  I["inventory-1..3 / I1..I3; I4 tạm A4"]
+  O["order-1..3 / O1..O3"]
+  P["Prometheus :9090 loopback"]
+  G["Grafana :3000 loopback"]
+  B4["B4: truy cập private được cấp tới C1"]
+  subgraph HOST["HOST Ubuntu — Docker Compose dự kiến"]
+    subgraph BACKEND["Mạng backend: app :8080; management :8082 nội bộ"]
+      API
+      LAB
+      INT
+      C
+      I
+      O
+    end
+    subgraph MON["Mạng monitoring dự kiến"]
+      P
+      G
+    end
+  end
+  LG -->|"API 8080"| API
+  LG -->|"bench / B3 quote / A3 / A4: 8081"| LAB
+  API --> C
+  API --> I
+  API --> O
+  LAB --> C
+  LAB --> I
+  LAB --> O
+  O -->|"Catalog rồi Inventory; giữ requestId/callId"| INT
+  INT --> C
+  INT --> I
+  P -->|"scrape trực tiếp từng instance :8082, mỗi 5 s"| C
+  P --> I
+  P --> O
+  G --> P
+  LG -.-> B4
+  B4 -.->|"private; không publish C1"| C
+```
+
+| Cổng / ranh giới | Quy tắc thiết kế cần kiểm chứng khi triển khai |
+|---|---|
+| HOST LAN 8080 / API | Chỉ NGINX publish; tạo requestId mới, ghi đè header ngoài; không route `/internal/bench` |
+| HOST LAN 8081 / lab | Firewall giới hạn LOADGEN; Real-IP chỉ tin peer thực /32 sau kiểm kê, không tin 0.0.0.0/0; log cả peer/effective IP |
+| Backend 8080, management 8082 | Không publish app/Actuator; scrape trực tiếp từng instance, không qua load balancer |
+| NGINX 8083 | Chỉ Order gọi nội bộ; giữ requestId/callId; B3 không giả IP downstream |
+| HOST 127.0.0.1:9090 / :3000 | Prometheus/Grafana chỉ bind loopback; không mở ra Internet |
+| B4 → C1 | Chỉ đường private được cấp trong vùng NT533; không mở thêm cổng public hoặc đổi mạng/SSH |
+| Header lab / ID | ID đúng regex không phải authentication; ngoài allowlist, thiếu/sai ID/requestId phải có negative smoke |
+
+**Probe thực tế trong container task:** `python3 -c` kiểm PATH/socket và gọi `k6 version` trả exit 0, stderr rỗng; Python 3.12.3, cwd `/workspace`, không có `/var/run/docker.sock`. `docker version` và `docker compose version` không khởi chạy vì không tìm thấy executable (exit của tiến trình Docker không có, không phải daemon đã trả lỗi). `k6 version` trả `k6 v1.0.0 (commit/41b4984b75-dirty, go1.24.2, linux/amd64)`, exit 0, stderr rỗng. Đây chỉ là quan sát container, không xác nhận bản cài HOST/LOADGEN; không cài thêm hoặc tìm đường vượt sandbox.
+
+**Đối chiếu sửa tiếp:** đầu phiên này `vm_read`, `git status --porcelain` và `git diff --stat` xác nhận checkout sạch ở base `c73d70eac79395d2bbf83821acbe31d592150381`, chưa có mục DHN của lượt trước. Khôi phục đúng mục D01-DHN trong hai MD, không reset/ours/theirs. `get_task` hiện trả 46 receipt cũ đến 08:00:26.250 UTC, gồm audit/CI/whitespace exit 0; nhận định cũ “chỉ đến 07:49 UTC” đã lỗi thời. Chưa thấy receipt mới của phiên sửa tiếp, nên không coi output mới trong phiên là bằng chứng broker đã lưu. Lượt trước từng lỗi mã hóa một dòng gốc (audit/CI exit 1), sau khôi phục riêng dòng từ HEAD đã đạt exit 0; lần này ghi chèn theo byte UTF-8/CRLF để bảo toàn phần gốc.
+
+**Yêu cầu adapter và bàn giao cả ba MD:** máy chủ cần cung cấp job kiểm kê read-only trên HOST và LOADGEN thực, gồm OS/CPU/RAM/swap/disk, Docker client/server/Compose, Java/k6 và route/source peer; lưu argv/stdout/stderr/exit/job ID theo task. Nếu thiếu công cụ host, chuẩn bị qua adapter được quản lý, không sudo host từ container. Điều phối phải đối chiếu/lưu receipt mới, hợp nhất tiến độ D01-DHN vào AGENTS.md và hai MD trước commit, bảo toàn bằng chứng mọi worker. AGENTS.md nằm ngoài scope sửa thân của DHN; không tự ghi JSON hệ thống. Chưa chạy Compose/NGINX/chín JVM/I4/pilot, chưa xác nhận G0/G2/G3; chưa commit/push/PR/CI GitHub/merge/deploy. Chờ điều phối xác nhận pipeline, không chuyển task/ngày.
 
 ### Q04. Workload, trace và seed đã chốt
 
@@ -351,6 +667,12 @@ Nhân trưởng nộp trên kênh chính thức do giảng viên cung cấp (slo
 **Chuỗi quyết định cuối cùng:** chuẩn bị máy/repo → code ba service → contract/test → Compose/NGINX → metric/trace → advanced/fault/reset → smoke G2 → pilot/preflight G3 → 104 run + 60 sweep → audit/backup → bảng/hình/RQ → báo cáo/slide/video → fresh-clone → release/nộp/biên nhận → đóng lab/bàn giao. Q01–Q15 chốt toàn bộ lựa chọn triển khai và đầu ra từ số 0; dữ kiện cần đo hoặc xác nhận bên ngoài vẫn phải thu evidence thật, không thể thay bằng một tuyên bố trong Markdown.
 
 <!-- END NT533-v1 DECISIONS -->
+
+## 0B. Liên kết đề cương D01 với đặc tả nghiên cứu và API
+
+[Bản đề cương sẵn gửi giảng viên](01_KE_HOACH_DO_AN.md) ở mục 0B giới hạn 14 ngày liên tiếp, đúng ba service Catalog, Inventory, Order, mỗi service ba replica. Năm RQ bám Q01: RQ1 so RR/LC/IPH tại B1/B2; RQ2 đo backend chậm hoặc dừng tại A1/A2; RQ3 đo CH-ID trong NAT/hot-client tại A3; RQ4 so GH-ID/CH-ID cùng key khi membership 3→4→3 tại A4; RQ5 so số replica và quote xuyên dịch vụ tại B0/B1/B3 (B4 chỉ chẩn đoán đường đi). Đây là thiết kế thí nghiệm, chưa phải kết quả.
+
+API v0 trong đề cương tóm tắt đúng bốn route của API v1 tại Q02: Catalog GET /api/catalog/products và GET /api/catalog/products/{id}; Inventory GET /api/inventory/{productId}; Order POST /api/orders/quote. ID sai regex ^P[0-9]{3}$ trả 400 INVALID_INPUT; P999 đúng định dạng nhưng vắng fixture trả 404 PRODUCT_NOT_FOUND. GET Inventory cho P003 trả 200 với availableStock=0, còn quote P003×1 trả 409 INSUFFICIENT_STOCK. Fixture, metadata, lỗi downstream và contract test theo Q02. Chưa có biên nhận gửi giảng viên hoặc kiểm thử HTTP runtime.
 
 ## 1. Hệ phân tán và vấn đề cần giải quyết
 
@@ -788,6 +1110,31 @@ Kế hoạch gồm 96 run chính, 8 xác nhận (104 run hiệu năng) và 60 l�
 
 Đơn vị phân tích latency là run/block; đơn vị khảo sát A4 là bộ khóa ở membership đã xác minh. Paired bootstrap resample nguyên cặp RR–LC hoặc IPH–CH-ID cùng block, không resample hai phía độc lập rồi gọi paired. Không lấy hàng triệu request tương quan làm hàng triệu lần lặp độc lập.
 
+### 12.2A. Áp dụng Matrix v0 và schema trace D01-HXN
+
+Bản thiết kế thực thi ở [Matrix v0](01_KE_HOACH_DO_AN.md#63a-matrix-v0--sản-phẩm-thiết-kế-d01-hxn) và [schema trace v0](01_KE_HOACH_DO_AN.md#71a-schema-trace-v0--input-seed-và-validity-d01-hxn) cụ thể hóa Q01/Q04–Q06, không thay protocol NT533-v1. Core B0–B4 có **54** run chính, advanced A1–A3 có **42** run chính; thêm **4+4** run xác nhận = **104**. A4 riêng **60** sweep/**60.000** request. B4 là diagnostic trực tiếp C1; B3 vẫn là core xuyên dịch vụ. CH-ID chỉ ở A3/A4, GH-ID chỉ làm control cùng key ở A4.
+
+| Nhánh | Biến độc lập chính | Đối chứng/đơn vị phân tích | Kết luận có giới hạn |
+|---|---|---|---|
+| B0/B1 | 1→3 Catalog, RR chung tải; B1 RR/LC/IPH ở M/H CPU | Cùng block/input/rate CPU; run | RQ1/RQ5 tại offered load đó; không suy capacity tuyến tính |
+| B2 | RR/LC/IPH ở M/H Mixed-delay 20/200 ms | Cùng trace uniform/prefix, run/block | RQ1 với concurrency đã kiểm tra, không gọi sleep là I/O thật |
+| B3/B4 | Quote xuyên dịch vụ / đường direct C1 | B3 M Quote; B4 M CPU so đường qua proxy | RQ5/diagnostic; không lấy hiệu latency làm overhead NGINX thuần |
+| A1/A2 | I3 +300 ms / stop90-start150, membership cấu hình không đổi | B2/M khỏe cùng algorithm/seed, reset giữa run | RQ2 slow và down khác nhau; recovery theo mốc thật |
+| A3 | Uniform/hot-ID cùng một IP, RR/LC/IPH/CH-ID | Cùng trace/IP/rate M Mixed, block | RQ3 đổi khóa IP→ID, có giới hạn hot-key; không cô lập ring |
+| A4 | GH-ID/CH-ID và membership 3-before→4→3-after | 5 keyset độc lập × 2 sweep kiểm stability | RQ4 tác động consistent cùng key; không chứng minh autoscaling |
+
+Input là biến được kiểm soát trước thí nghiệm: tám cột bắt buộc `request_index,request_id,client_id,effective_ip,profile,delay_class,product_id,quantity`. Mixed-delay dùng delay_class fast/slow, quote chỉ P001×2 và không thêm query profile; ô không áp dụng để rỗng. Trace không chứa backend/status/latency dự đoán. `effective_ip` trong CSV là địa chỉ dự kiến cho mode mô phỏng, phải kiểm lại peer/effective IP trong log; B3/B4/A4 dùng mode nguồn thực, ô CSV này để rỗng, IP quan sát nằm trong log/manifest.
+
+Block 1–5 dùng client seed **53301..53305**, delay RNG độc lập seed+100000; schedule **53300**, bootstrap **53399**, A4 keysets **53401..53405**. Uniform chọn j bằng randrange(1000); hot-ID chọn j0 với xác suất 0,8, phần còn lại đều trên 1..999. Tách RNG ngăn thay đổi lịch client vô tình làm đổi chuỗi delay; không bảo đảm mọi trace hữu hạn có đúng 80/20 hay count các ID bằng nhau. Công bố tỷ lệ quan sát từ input, không lọc seed vì phân bố/backend chưa đẹp.
+
+`trace_id` ổn định theo input, request_id lấy SHA-256(trace_id:index) như Q04; so sánh/rerun giữ bytes và checksum. Vì ID được lặp giữa các algorithm, join dữ liệu phải gồm run_id; downstream thêm call_id. Index toàn cục liên tục từ 0 và phase offsets khóa trước chạy giúp warm-up/measurement không tái dùng row khi k6 scenario reset iterationInTest. Cặp B2/M–A1–A2 dùng cùng trace dài nhất, phần ngắn dùng prefix; không sinh trace theo VU hoặc modulo khi thiếu dòng.
+
+Validity kiểm tra phép đo có đúng input, đủ tải và đủ evidence; SLO kiểm tra chất lượng phục vụ. Hụt tải client, hash/seed sai, pending cuối drain, thiếu raw hoặc 200 sai contract phải xử lý theo 7.1A. Timeout/5xx do backend overload vẫn là kết quả của run hợp lệ nếu đầu vào và thu thập đúng. Một run valid có thể fail SLO; thiếu mẫu p99/recovery là cờ/N/A theo protocol, không phải lý do tự loại run thua. Rerun giữ raw cũ và liên kết supersedes, không ghi đè. Thay code/config làm mất tính so sánh phải theo Q07: protocol_version mới và chạy lại các cell bị ảnh hưởng, không chỉ chọn bỏ run xấu.
+
+A4 phân biệt hai membership ba backend bằng nhãn 3-before và 3-after. Hai sweep trong cùng snapshot phải đủ toàn bộ 1.000 key, cùng mapping 100%, có config generation/drain và endpoint I1–I3 ổn định; thiếu key hoặc lỗi không được tính là remap. Rerun snapshot dùng ID snapshot mới nhưng giữ keyset/client-ID, không đổi seed sau khi xem kết quả. Weight lấy từ trace hot-ID đã khóa riêng, không từ response còn sống sót.
+
+Hai contrast đăng ký trước vẫn là B2/H LC–RR và A3/uniform CH-ID–IPH: block 4–5 chỉ thêm cho đúng hai phía. n=5 là năm cặp run, không phải năm request; A4 n=5 là năm keyset, hai sweep không tạo thêm lặp độc lập. Không có số liệu đo trong Matrix v0 hay ví dụ CSV.
+
 ### 12.3. Ranh giới thời gian và cohort
 
 ```text
@@ -856,6 +1203,35 @@ Các liên kết đặt cạnh nội dung là nguồn gốc để tra cứu; khi
 
 **Chưa thực hiện:** xây dựng ứng dụng, kiểm tra cấu hình mẫu bằng NGINX và chạy thực nghiệm. Không có số liệu hiệu năng thật trong tài liệu này.
 
+<!-- D01-HXN_DESIGN_CHECK_BEGIN -->
+### Bằng chứng D01-HXN — kiểm tra thiết kế trên Ubuntu
+
+Task `6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51`, đợt `cb39b2e0e86262365cd1378893add46f33bd413287cd1a68`. HXN bổ sung Matrix v0 (6.3A), schema trace (7.1A) và phương pháp (12.2A); không đổi RQ/API/PCCV/protocol. Đây là sản phẩm thiết kế D01, không xác nhận benchmark hay task ngày sau đã hoàn thành.
+
+Môi trường kiểm tra: container Ubuntu riêng của task trên vai trò LOADGEN, Python 3.12.3, cwd `/workspace`. Broker get_lab báo HOST/LOADGEN và toolsReady=true, chưa chứng minh tài nguyên/daemon hay năng lực phát tải của host. Container có git/k6 trong PATH, không có rg/docker; dùng Python stdlib cho kiểm tra tài liệu, không cài thêm công cụ. Đã trao đổi TDN/DMN/TTN/DHN; TTN đối chiếu đặc tả/giao diện tóm tắt, chưa đọc patch hoặc chạy lại kiểm tra HXN, không coi là xác minh độc lập.
+
+Lệnh đã chạy qua vm_exec: `python3 -c <harness stdlib D01-HXN>` (đọc hai Markdown thực, mở rộng matrix, tái sinh/validate CSV và thử input sai) và `git -c core.whitespace=cr-at-eol diff --check`, cwd `.`. Toàn bộ đối số Python, stdout/stderr/exit nằm trong log công cụ của task. Git dùng cr-at-eol vì tài liệu gốc CRLF; vẫn kiểm tra khoảng trắng cuối dòng.
+
+Python stdout của lần kiểm tra đạt:
+
+```text
+OK scope; Q01-Q15 and system progress blocks unchanged; AGENTS unchanged
+OK matrix: core=54 advanced=42 main=96 confirmation=8 total=104; paired n=5
+OK A4: 60 sweeps / 60000 requests; 5 distinct collision-free sorted keysets
+OK schema: 8 ordered columns; exact documented CSV regenerated; four profiles accepted
+OK schema: 16 invalid-input mutations rejected
+OK seeds: 5 blocks reproducible; delay stream independent of uniform/hot-ID client selection; 1000 prefixes
+OK offsets: 120s warm-up disjoint; shared 180s prefix of 300s schedule; drain creates no rows
+OK validity/protocol references; documentation design check only, no service benchmark
+```
+
+Python exit=0, stderr rỗng. Git diff-check exit=0, stdout/stderr rỗng. Lỗi trung gian đã sửa trước khi đạt: chèn chuỗi làm lặp nội dung (đã kiểm bảo toàn lại tài liệu); harness lấy sai offset header bảng (đã sửa parser). Một lệnh wrapper dài bị adapter từ chối `Invalid command argv`, không chạy; đã dùng lại harness trực tiếp thành công. Các kiểm tra trên dùng dữ liệu tổng hợp, không có số đo hiệu năng.
+
+Kiểm tra thêm khối `Documents, links and secret boundaries` trích nguyên từ `.github/workflows/nt533-ci.yml` bằng `python3 -c` qua vm_exec: exit=0, stderr rỗng; stdout: `Document, relative-link and public-repository boundary checks passed`. Đây là chạy khối kiểm tra tài liệu tại Ubuntu, không tuyên bố GitHub CI/pipeline đã chạy.
+
+Bàn giao ghi chú cho **cả AGENTS.md, 01_KE_HOACH_DO_AN.md và 02_CO_SO_LY_THUYET.md**: bộ điều phối xác minh rồi cập nhật tiến độ có cấu trúc trước commit, bảo toàn worker khác. HXN chỉ sửa thân hai tệp trong phạm vi, không sửa AGENTS.md/JSON hệ thống. Giữ trạng thái Matrix/schema là thiết kế; test tài liệu đã chạy; chưa có N/R_ref/VU/digest/pilot/raw benchmark. Chưa kiểm dịch vụ, Real-IP, fault/mapping thật, CI/merge/deploy; inventory host/năng lực phát tải còn cần adapter/owner thu bằng chứng. Chờ bộ điều phối xác nhận pipeline, không tự commit/push hoặc chuyển ngày.
+
+<!-- D01-HXN_DESIGN_CHECK_END -->
 #### D01-TTN. Bằng chứng kiểm tra và ghi chú bàn giao
 
 - Task `b9513e18f4738431f4ff86b37a604f2fa1aa6f59a276cef9`, đợt `cb39b2e0e86262365cd1378893add46f33bd413287cd1a68`: bổ sung Q02-TTN/Q06-TTN đồng nhất trong hai Markdown; chỉ thiết kế Inventory/metric, giữ nguyên API v1, fixture, bucket và protocol gốc.
@@ -868,9 +1244,407 @@ Các liên kết đặt cạnh nội dung là nguồn gốc để tra cứu; khi
 - Chưa chạy API/JUnit, Prometheus ingestion, Docker/NGINX, benchmark hoặc deploy vì chưa có source/config triển khai trong task thiết kế này. Checklist D04/D06 ở Q06-TTN là nghiệm thu tương lai. Không tự commit/push/PR/merge; chờ bộ điều phối xác nhận pipeline, không chuyển ngày.
 
 
+<!-- D01-HXN_MAIN_REPAIR_BEGIN -->
+### D01-HXN — bằng chứng sửa xung đột và bàn giao cùng task
+
+Lượt tiếp tục task `6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51`, đợt `cb39b2e0e86262365cd1378893add46f33bd413287cd1a68`: đã đọc ba MD bằng vm_read. Workspace LOADGEN hiện tại vẫn có một conflict thân/tệp tại hai đoạn bằng chứng; HXN nối đủ cả hai bên, giữ nguyên byte Q02-TTN/Q06-TTN và bằng chứng HXN/TTN (kể cả lỗi ban đầu). Khôi phục riêng từ lỗi mã hóa trong câu Routing benchmark của 01 theo HEAD, không reset hoặc chọn ours/theirs. Matrix v0/schema trace không đổi.
+
+Môi trường thực chạy qua vm_exec: cwd `/workspace`, Linux 6.8.0-149-generic, Python 3.12.3, có git/k6; thiếu rg/docker trong container. Dùng Python stdlib, không cài công cụ hoặc truy cập host/workspace khác. toolsReady là metadata của broker, không phải inventory tài nguyên hay chứng cứ daemon host. Đã trao đổi lại TTN/DHN; kết quả workspace của họ chỉ là dữ liệu phối hợp, không nhận làm test HXN.
+
+Kết quả thực sau sửa thân:
+
+| Lệnh qua vm_exec | Kết quả |
+|---|---|
+| `python3 -c <harness repair>` | exit 0, stderr rỗng; core 54 + advanced 42 + 8 xác nhận = 104 run thiết kế; A4 60 sweep/60.000 request; CSV tái sinh đúng, bốn profile, năm seed, phase offsets; từ chối 16 input sai |
+| `python3 -c <documents trích nguyên từ .github/workflows/nt533-ci.yml>` | exit 0, stderr rỗng; stdout `Document, relative-link and public-repository boundary checks passed` |
+| `git -c core.whitespace=trailing-space,space-before-tab,cr-at-eol diff --check` | exit 2, stderr rỗng; stdout chỉ báo leftover conflict marker trong JSON hệ thống của 01/02 |
+| `python3 -c <audit marker ba MD>` | exit 1; stdout body_markers=0 cho cả ba MD, system_markers=0 ở AGENTS và 12 ở mỗi 01/02; stderr `BLOCKED: coordinator-owned NT533_PROGRESS JSON unresolved` |
+| `python3 -c <audit bảo toàn từng phần>` | exit 0, stderr rỗng; byte AGENTS.md, JSON hệ thống, Q02/Q06-TTN và bằng chứng HXN/TTN giữ nguyên so với đầu lượt; không còn ký tự thay thế U+FFFD |
+
+Một lệnh audit truyền thêm đối số dữ liệu bị adapter trả `Invalid command argv`, không thực thi; đã tách sang từng lệnh `python3 -c` và kiểm tra đạt, không bỏ qua kiểm tra. stdout/stderr/exit của các lệnh thực có trong phản hồi vm_exec. **Chưa xác minh broker lưu receipt mới:** get_task sau test vẫn trả 50 receipt cũ, mới nhất `2026-11-17T07:55:42.055Z`, không có lượt test vừa chạy; bộ điều phối cần thu nhận/xác minh trước commit, không dùng receipt cũ thay bằng chứng mới.
+
+Ghi chú cần cập nhật vào **cả AGENTS.md, 01_KE_HOACH_DO_AN.md và 02_CO_SO_LY_THUYET.md**: bộ điều phối hợp nhất JSON bảo toàn receipt HXN/TTN, ghi kết quả đạt và điểm chặn nêu trên sau xác minh, rồi chạy lại audit/test/CI/review đúng HEAD. HXN không sửa AGENTS.md hoặc JSON hệ thống theo phạm vi task. Không thể báo hết conflict hay pipeline đạt khi JSON còn marker/receipt mới chưa xác minh.
+
+Đây là kiểm tra thiết kế với dữ liệu tổng hợp, chưa benchmark dịch vụ, đo N/R_ref/VU, kiểm host, Real-IP/fault/mapping thật. Chưa commit/push/PR/merge/deploy; chờ bộ điều phối xử lý phần bị chặn và xác nhận pipeline, không chuyển task/ngày.
+<!-- D01-HXN_MAIN_REPAIR_END -->
+
+<!-- D01-DMN:conflict-recheck-begin -->
+#### D01-DMN. Kiểm tra lại sau ghép xung đột thân tài liệu
+
+Thời điểm chạy thật (UTC): 2026-11-17T08:01:36.290257+00:00. Task f75a1c3602e24369f1609e52ff61e0637a3806aa89a601af, đợt cb39b2e0e86262365cd1378893add46f33bd413287cd1a68. Linux 6.8.0-149-generic, Python 3.12.3, workspace Ubuntu /workspace qua vm_exec.
+
+Đã xử lý bốn xung đột thân (hai trong mỗi MD): chỉ bỏ tổng cộng 12 dòng marker, giữ toàn bộ hai phía Catalog/Inventory và bằng chứng TTN, Q06-TTN. Kiểm SHA-256 xác nhận thân ngoài ghi chú này khớp từng byte với bản trước sửa sau khi chỉ loại 12 dòng marker. ID/giá/tồn và ba ca không đổi. AGENTS.md và byte của hai khối JSON hệ thống giữ nguyên; không chọn ours/theirs, không sửa Git config.
+
+Kiểm kê đầu lượt: rg chưa cài; lệnh Python gọi rg --files dừng với FileNotFoundError, exit 1. Dùng pathlib/Python stdlib thay thế, không cài công cụ hay đổi môi trường host. Workspace được cấp lại còn marker thân mặc dù báo cáo trước mô tả thân đã sạch; lần sửa này dựa trên byte thực tế đang có.
+
+Lần ghi bằng chứng đầu lượt bị dừng tại assertion (exit 1): marker trong chuỗi argv được hiểu nhầm là ranh giới hệ thống sau khi đã thêm ghi chú vào MD đầu tiên. Đã gỡ riêng ghi chú chưa hoàn chỉnh và xác minh SHA-256 thân/khối hệ thống khớp baseline; lần ghi lại mã hóa ký tự < trong argv để tránh nhập nhằng. Không sửa dữ liệu Catalog/TTN hay JSON hệ thống.
+
+Kết quả dưới đây thuộc lần chạy này; kết quả cũ phía trên là lịch sử. TTN phản hồi đã đọc đặc tả trong workspace riêng và xác nhận ranh giới nghiệp vụ; TTN chưa đọc bản ghép hoặc chạy lại kiểm tra này, nên không coi là chứng thực độc lập byte/test của DMN. TDN chỉ đọc workspace riêng với JSON tiến độ [] và không xác minh được kết quả DMN; không xem phản hồi TDN là bằng chứng test.
+
+- CI documents: `python3 -c <CI documents>`; exit 0.
+
+argv thực thi (JSON biểu diễn tham số, không phải khối tiến độ hệ thống):
+~~~text
+["python3", "-c", "from pathlib import Path\nimport textwrap\nworkflow=Path(\".github/workflows/nt533-ci.yml\").read_text(encoding=\"utf-8\")\ncode=workflow.split(\"python3 - \u003c\u003c'PY'\\n\",1)[1].split(\"\\n          PY\",1)[0]\nexec(textwrap.dedent(code))"]
+~~~
+
+stdout:
+~~~text
+Document, relative-link and public-repository boundary checks passed
+~~~
+
+stderr:
+~~~text
+~~~
+
+- D01-DMN-CHECK: `python3 -c <D01-DMN-CHECK>`; exit 0.
+
+argv thực thi (JSON biểu diễn tham số, không phải khối tiến độ hệ thống):
+~~~text
+["python3", "-c", "from pathlib import Path\nt=Path(\"01_KE_HOACH_DO_AN.md\").read_text(encoding=\"utf-8\")\nexec(\"# D01-DMN-CHECK\"+t.split(\"```python\\n# D01-DMN-CHECK\",1)[1].split(\"```\",1)[0])"]
+~~~
+
+stdout:
+~~~text
+OK: 2 documents; Product schema; 3 fixed products; Q02 parity; 3 Catalog cases; 11 invalid products rejected; quote arithmetic
+fixture-sha256 (UTF-8/LF + final LF): bd76926a87fd55258a567c248146ff215632ae323bd276fcc7a76eae227d850e
+~~~
+
+stderr:
+~~~text
+~~~
+
+- Markers/system JSON: `python3 -c <Markers/system JSON>`; exit 1.
+
+argv thực thi (JSON biểu diễn tham số, không phải khối tiến độ hệ thống):
+~~~text
+["python3", "-c", "from pathlib import Path\nimport json,re,sys\nfailures=0\nfor name in (\"AGENTS.md\",\"01_KE_HOACH_DO_AN.md\",\"02_CO_SO_LY_THUYET.md\"):\n text=Path(name).read_text(encoding=\"utf-8\")\n body,system=text.split(\"\u003c!-- NT533_PROGRESS_BEGIN v1 -->\",1)\n hits=list(re.finditer(r\"(?m)^(?:\u003c\u003c\u003c\u003c\u003c\u003c\u003c[^\\n]*|=======|>>>>>>>[^\\n]*)$\",text))\n body_hits=list(re.finditer(r\"(?m)^(?:\u003c\u003c\u003c\u003c\u003c\u003c\u003c|=======|>>>>>>>)\",body))\n print(name+\": body markers=\"+str(len(body_hits))+\"; total markers=\"+str(len(hits)))\n if hits: failures+=1\n try:\n  payload=re.search(r\"`{3}json\\n(.*?)\\n`{3}\",system,re.S).group(1)\n  records=json.loads(payload)\n  assert isinstance(records,list)\n  print(name+\": system JSON valid; records=\"+str(len(records)))\n except (ValueError,AttributeError,AssertionError) as error:\n  print(name+\": system JSON INVALID: \"+str(error)); failures+=1\nsys.exit(1 if failures else 0)"]
+~~~
+
+stdout:
+~~~text
+AGENTS.md: body markers=0; total markers=0
+AGENTS.md: system JSON valid; records=2
+01_KE_HOACH_DO_AN.md: body markers=0; total markers=15
+01_KE_HOACH_DO_AN.md: system JSON INVALID: Expecting property name enclosed in double quotes: line 3 column 1 (char 6)
+02_CO_SO_LY_THUYET.md: body markers=0; total markers=15
+02_CO_SO_LY_THUYET.md: system JSON INVALID: Expecting property name enclosed in double quotes: line 3 column 1 (char 6)
+~~~
+
+stderr:
+~~~text
+~~~
+
+- Preservation: `python3 -c <Preservation>`; exit 0.
+
+argv thực thi (JSON biểu diễn tham số, không phải khối tiến độ hệ thống):
+~~~text
+["python3", "-c", "from pathlib import Path\nimport hashlib,re\nmarker=b'\u003c!-- NT533_PROGRESS_BEGIN v1 -->'\nexpected={\"01_KE_HOACH_DO_AN.md\":\"EC40B757B2C6D8831A4DD99E8C7B5068260045F2C9AF40EB73FB5615F99E9165\",\"02_CO_SO_LY_THUYET.md\":\"DD13CBA04B6EBAA17217998D2348DBC7349B202D91150F1FEF5DFB3ECD74262B\"}\nassert hashlib.sha256(Path(\"AGENTS.md\").read_bytes()).hexdigest().upper()==\"E97D4AF03D78DD17EFBC1A2C6E679B1E451450323CB6CB73B6A5148F081876B8\"\nfor name,digest in expected.items():\n raw=Path(name).read_bytes(); body,system=raw.split(marker,1)\n assert hashlib.sha256(system).hexdigest().upper()==\"16032CAB9BF1BF47D665EDA81FE3856429D6579724948F9E9D869F289E61944E\"\n body=re.sub(rb'\u003c!-- D01-DMN:conflict-recheck-begin -->\\n.*?\u003c!-- D01-DMN:conflict-recheck-end -->\\n',b'',body,flags=re.S)\n assert hashlib.sha256(body).hexdigest().upper()==digest,name\n assert not re.search(rb'(?m)^(?:\u003c\u003c\u003c\u003c\u003c\u003c\u003c|=======|>>>>>>>)',body),name\n for heading in (b\"#### Q02-TTN.\",b\"#### Q06-TTN.\",b\"#### D01-TTN.\"):\n  assert body.count(heading)==1,(name,heading)\n print(name+\": retained body matches byte baseline after deleting only 6 marker lines\")\nprint(\"OK: Catalog/Inventory/metrics/TTN evidence bytes retained; AGENTS.md and both system blocks unchanged\")"]
+~~~
+
+stdout:
+~~~text
+01_KE_HOACH_DO_AN.md: retained body matches byte baseline after deleting only 6 marker lines
+02_CO_SO_LY_THUYET.md: retained body matches byte baseline after deleting only 6 marker lines
+OK: Catalog/Inventory/metrics/TTN evidence bytes retained; AGENTS.md and both system blocks unchanged
+~~~
+
+stderr:
+~~~text
+~~~
+
+- Whitespace/conflict: `git -c core.whitespace=trailing-space,space-before-tab,cr-at-eol diff --check`; exit 2.
+
+argv thực thi (JSON biểu diễn tham số, không phải khối tiến độ hệ thống):
+~~~text
+["git", "-c", "core.whitespace=trailing-space,space-before-tab,cr-at-eol", "diff", "--check"]
+~~~
+
+stdout:
+~~~text
+01_KE_HOACH_DO_AN.md:935: leftover conflict marker
+01_KE_HOACH_DO_AN.md:942: leftover conflict marker
+01_KE_HOACH_DO_AN.md:949: leftover conflict marker
+01_KE_HOACH_DO_AN.md:954: leftover conflict marker
+01_KE_HOACH_DO_AN.md:959: leftover conflict marker
+01_KE_HOACH_DO_AN.md:960: leftover conflict marker
+01_KE_HOACH_DO_AN.md:977: leftover conflict marker
+01_KE_HOACH_DO_AN.md:999: leftover conflict marker
+01_KE_HOACH_DO_AN.md:1005: leftover conflict marker
+01_KE_HOACH_DO_AN.md:1017: leftover conflict marker
+01_KE_HOACH_DO_AN.md:1022: leftover conflict marker
+01_KE_HOACH_DO_AN.md:1023: leftover conflict marker
+01_KE_HOACH_DO_AN.md:1036: leftover conflict marker
+01_KE_HOACH_DO_AN.md:1041: leftover conflict marker
+01_KE_HOACH_DO_AN.md:1042: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1094: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1101: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1108: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1113: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1118: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1119: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1136: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1158: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1164: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1176: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1181: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1182: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1195: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1200: leftover conflict marker
+02_CO_SO_LY_THUYET.md:1201: leftover conflict marker
+~~~
+
+stderr:
+~~~text
+~~~
+
+Điểm chặn: JSON tiến độ hệ thống ở hai MD còn marker xung đột, nên diff --check và kiểm marker/JSON chưa đạt. Không thay source để né kiểm tra và không tự hợp nhất JSON. AGENTS.md nằm ngoài phạm vi sửa thân; bộ điều phối cần hợp nhất tiến độ DMN/TTN có cấu trúc và cập nhật biên nhận vào CẢ BA MD trước commit, giữ cả các exit lỗi và kết quả kiểm lại; sau đó kiểm lại marker/JSON, diff --check, CI/review đúng HEAD.
+
+Ghi chú cho cả ba MD: AGENTS.md ghi kết quả kiểm tra thiết kế và chặn JSON từ biên nhận vm_exec; 01_KE_HOACH_DO_AN.md giữ schema/fixture/ba case và bằng chứng lần ghép này; 02_CO_SO_LY_THUYET.md giữ bản đồng bộ và ranh giới Catalog/Inventory/metric. Chưa kiểm thử HTTP/runtime/Java/replica, benchmark hoặc deploy vì task D01 chỉ thiết kế và chưa có source service. Chưa commit/push/PR/merge; chờ bộ điều phối xác nhận pipeline, không chuyển task/ngày.
+
+<!-- D01-DMN:conflict-recheck-end -->
+
+
+## Hoàn tất phần việc D1 — phục hồi điều phối 17/11/2026
+
+ADMIN đã tạm dừng cả năm worker và trực tiếp ghép tài liệu của TDN, DMN, TTN, DHN, HXN. Giữ nguyên thiết kế, bằng chứng kiểm tra cũ và lịch sử lỗi; loại các marker Git trong thân và hợp nhất JSON tiến độ theo task ID. Nội dung này ghi nhận phần thiết kế/kiểm kê D1, không xác nhận dịch vụ, benchmark hoặc triển khai ứng dụng đã chạy. Không tự chuyển D2.
+
+Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu trong lượt phục hồi. Các biên nhận cũ được giữ nguyên, gồm kết quả thất bại ban đầu; kết quả kiểm kê dưới đây là thao tác chỉ đọc mới, không phải kiểm thử tải. CI của nhánh tích hợp vẫn do GitHub chạy theo bảo vệ main.
+
+**Đề cương:** ADMIN xác nhận trong phiên làm việc ngày 17/11/2026 rằng đề cương đã được gửi giảng viên. Chưa đính kèm kênh, thời điểm gửi hoặc biên nhận; bổ sung khi ADMIN cung cấp. Xác nhận này không có nghĩa giảng viên đã duyệt phạm vi hoặc phần nâng cao.
+
+| Kiểm kê host thực qua SSH đã ghim fingerprint | HOST | LOADGEN |
+|---|---|---|
+| IP | 10.70.197.121 | 10.70.197.172 |
+| Ubuntu | 24.04.5 LTS | 24.04.3 LTS |
+| Kernel | 6.8.0-149-generic | 6.8.0-149-generic |
+| CPU logic | 8 | 8 |
+| RAM tổng / available tại thời điểm thu (MiB) | 5878 / 5139 | 3868 / 3185 |
+| Swap | 0 | 0 |
+| Disk available vùng Docker (GiB) | 8.99 | 12.93 |
+| Docker Engine | 29.1.3 | 29.1.3 |
+| Compose | 2.40.3 | 2.40.3 |
+| Managed image ID rút gọn | eb1984d39325 | 64174dda1b88 |
+| Route tới máy kia | ens33; source 10.70.197.121 | ens33; source 10.70.197.172 |
+| Thời điểm UTC | 2026-11-17T08:48:21.107Z | 2026-11-17T08:48:22.330Z |
+
+**Giới hạn tài nguyên:** HOST có RAM tổng thấp hơn cả budget thường 5888 MiB và budget I4 6400 MiB, chưa tính OS/Docker. D1 chỉ hoàn tất thiết kế và ghi nhận máy thực; cần tăng RAM hoặc có quyết định điều chỉnh đồng bộ đã được duyệt trước khi chạy đủ stack/pilot. Không giảm replica/quota riêng một thuật toán, không nhận G2/G3 đạt và không thay đổi cấu hình VM trong lượt này. Route read-only không chứng minh firewall, Real-IP, cổng dịch vụ hay khả năng chịu tải.
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51:code",
+    "taskId": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51",
+    "member": "HXN",
+    "pccvId": "D01-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T08:57:44.366Z",
+    "base": "8459d8257b94fc81d8acaa433a9098c7ef92a54e",
+    "files": [],
+    "tests": [
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "b9513e18f4738431f4ff86b37a604f2fa1aa6f59a276cef9:code",
     "taskId": "b9513e18f4738431f4ff86b37a604f2fa1aa6f59a276cef9",
@@ -928,6 +1702,653 @@ Các liên kết đặt cạnh nội dung là nguồn gốc để tra cứu; khi
       {
         "program": "git",
         "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "cfc4a3c4b70587b3302c92c22cb1cba30bb5779345273844:code",
+    "taskId": "cfc4a3c4b70587b3302c92c22cb1cba30bb5779345273844",
+    "member": "TDN",
+    "pccvId": "D01-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T08:57:44.377Z",
+    "base": "8459d8257b94fc81d8acaa433a9098c7ef92a54e",
+    "files": [],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "pwd",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "rg",
+        "exitCode": 127
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "ef72864aeabac39d94febc0692d94c3eb38f89c8884cde8b:code",
+    "taskId": "ef72864aeabac39d94febc0692d94c3eb38f89c8884cde8b",
+    "member": "DHN",
+    "pccvId": "D01-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T08:57:44.384Z",
+    "base": "8459d8257b94fc81d8acaa433a9098c7ef92a54e",
+    "files": [],
+    "tests": [
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "host-inventory",
+        "exitCode": 0
+      },
+      {
+        "program": "host-inventory",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "f75a1c3602e24369f1609e52ff61e0637a3806aa89a601af:code",
+    "taskId": "f75a1c3602e24369f1609e52ff61e0637a3806aa89a601af",
+    "member": "DMN",
+    "pccvId": "D01-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T08:57:44.391Z",
+    "base": "8459d8257b94fc81d8acaa433a9098c7ef92a54e",
+    "files": [],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "pkill",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
       },
       {
         "program": "python3",
