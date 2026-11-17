@@ -730,6 +730,31 @@ Kế hoạch gồm 96 run chính, 8 xác nhận (104 run hiệu năng) và 60 l�
 
 Đơn vị phân tích latency là run/block; đơn vị khảo sát A4 là bộ khóa ở membership đã xác minh. Paired bootstrap resample nguyên cặp RR–LC hoặc IPH–CH-ID cùng block, không resample hai phía độc lập rồi gọi paired. Không lấy hàng triệu request tương quan làm hàng triệu lần lặp độc lập.
 
+### 12.2A. Áp dụng Matrix v0 và schema trace D01-HXN
+
+Bản thiết kế thực thi ở [Matrix v0](01_KE_HOACH_DO_AN.md#63a-matrix-v0--sản-phẩm-thiết-kế-d01-hxn) và [schema trace v0](01_KE_HOACH_DO_AN.md#71a-schema-trace-v0--input-seed-và-validity-d01-hxn) cụ thể hóa Q01/Q04–Q06, không thay protocol NT533-v1. Core B0–B4 có **54** run chính, advanced A1–A3 có **42** run chính; thêm **4+4** run xác nhận = **104**. A4 riêng **60** sweep/**60.000** request. B4 là diagnostic trực tiếp C1; B3 vẫn là core xuyên dịch vụ. CH-ID chỉ ở A3/A4, GH-ID chỉ làm control cùng key ở A4.
+
+| Nhánh | Biến độc lập chính | Đối chứng/đơn vị phân tích | Kết luận có giới hạn |
+|---|---|---|---|
+| B0/B1 | 1→3 Catalog, RR chung tải; B1 RR/LC/IPH ở M/H CPU | Cùng block/input/rate CPU; run | RQ1/RQ5 tại offered load đó; không suy capacity tuyến tính |
+| B2 | RR/LC/IPH ở M/H Mixed-delay 20/200 ms | Cùng trace uniform/prefix, run/block | RQ1 với concurrency đã kiểm tra, không gọi sleep là I/O thật |
+| B3/B4 | Quote xuyên dịch vụ / đường direct C1 | B3 M Quote; B4 M CPU so đường qua proxy | RQ5/diagnostic; không lấy hiệu latency làm overhead NGINX thuần |
+| A1/A2 | I3 +300 ms / stop90-start150, membership cấu hình không đổi | B2/M khỏe cùng algorithm/seed, reset giữa run | RQ2 slow và down khác nhau; recovery theo mốc thật |
+| A3 | Uniform/hot-ID cùng một IP, RR/LC/IPH/CH-ID | Cùng trace/IP/rate M Mixed, block | RQ3 đổi khóa IP→ID, có giới hạn hot-key; không cô lập ring |
+| A4 | GH-ID/CH-ID và membership 3-before→4→3-after | 5 keyset độc lập × 2 sweep kiểm stability | RQ4 tác động consistent cùng key; không chứng minh autoscaling |
+
+Input là biến được kiểm soát trước thí nghiệm: tám cột bắt buộc `request_index,request_id,client_id,effective_ip,profile,delay_class,product_id,quantity`. Mixed-delay dùng delay_class fast/slow, quote chỉ P001×2 và không thêm query profile; ô không áp dụng để rỗng. Trace không chứa backend/status/latency dự đoán. `effective_ip` trong CSV là địa chỉ dự kiến cho mode mô phỏng, phải kiểm lại peer/effective IP trong log; B3/B4/A4 dùng mode nguồn thực, ô CSV này để rỗng, IP quan sát nằm trong log/manifest.
+
+Block 1–5 dùng client seed **53301..53305**, delay RNG độc lập seed+100000; schedule **53300**, bootstrap **53399**, A4 keysets **53401..53405**. Uniform chọn j bằng randrange(1000); hot-ID chọn j0 với xác suất 0,8, phần còn lại đều trên 1..999. Tách RNG ngăn thay đổi lịch client vô tình làm đổi chuỗi delay; không bảo đảm mọi trace hữu hạn có đúng 80/20 hay count các ID bằng nhau. Công bố tỷ lệ quan sát từ input, không lọc seed vì phân bố/backend chưa đẹp.
+
+`trace_id` ổn định theo input, request_id lấy SHA-256(trace_id:index) như Q04; so sánh/rerun giữ bytes và checksum. Vì ID được lặp giữa các algorithm, join dữ liệu phải gồm run_id; downstream thêm call_id. Index toàn cục liên tục từ 0 và phase offsets khóa trước chạy giúp warm-up/measurement không tái dùng row khi k6 scenario reset iterationInTest. Cặp B2/M–A1–A2 dùng cùng trace dài nhất, phần ngắn dùng prefix; không sinh trace theo VU hoặc modulo khi thiếu dòng.
+
+Validity kiểm tra phép đo có đúng input, đủ tải và đủ evidence; SLO kiểm tra chất lượng phục vụ. Hụt tải client, hash/seed sai, pending cuối drain, thiếu raw hoặc 200 sai contract phải xử lý theo 7.1A. Timeout/5xx do backend overload vẫn là kết quả của run hợp lệ nếu đầu vào và thu thập đúng. Một run valid có thể fail SLO; thiếu mẫu p99/recovery là cờ/N/A theo protocol, không phải lý do tự loại run thua. Rerun giữ raw cũ và liên kết supersedes, không ghi đè. Thay code/config làm mất tính so sánh phải theo Q07: protocol_version mới và chạy lại các cell bị ảnh hưởng, không chỉ chọn bỏ run xấu.
+
+A4 phân biệt hai membership ba backend bằng nhãn 3-before và 3-after. Hai sweep trong cùng snapshot phải đủ toàn bộ 1.000 key, cùng mapping 100%, có config generation/drain và endpoint I1–I3 ổn định; thiếu key hoặc lỗi không được tính là remap. Rerun snapshot dùng ID snapshot mới nhưng giữ keyset/client-ID, không đổi seed sau khi xem kết quả. Weight lấy từ trace hot-ID đã khóa riêng, không từ response còn sống sót.
+
+Hai contrast đăng ký trước vẫn là B2/H LC–RR và A3/uniform CH-ID–IPH: block 4–5 chỉ thêm cho đúng hai phía. n=5 là năm cặp run, không phải năm request; A4 n=5 là năm keyset, hai sweep không tạo thêm lặp độc lập. Không có số liệu đo trong Matrix v0 hay ví dụ CSV.
+
 ### 12.3. Ranh giới thời gian và cohort
 
 ```text
@@ -798,8 +823,153 @@ Các liên kết đặt cạnh nội dung là nguồn gốc để tra cứu; khi
 
 **Chưa thực hiện:** xây dựng ứng dụng, kiểm tra cấu hình mẫu bằng NGINX và chạy thực nghiệm. Không có số liệu hiệu năng thật trong tài liệu này.
 
+<!-- D01-HXN_DESIGN_CHECK_BEGIN -->
+### Bằng chứng D01-HXN — kiểm tra thiết kế trên Ubuntu
+
+Task `6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51`, đợt `cb39b2e0e86262365cd1378893add46f33bd413287cd1a68`. HXN bổ sung Matrix v0 (6.3A), schema trace (7.1A) và phương pháp (12.2A); không đổi RQ/API/PCCV/protocol. Đây là sản phẩm thiết kế D01, không xác nhận benchmark hay task ngày sau đã hoàn thành.
+
+Môi trường kiểm tra: container Ubuntu riêng của task trên vai trò LOADGEN, Python 3.12.3, cwd `/workspace`. Broker get_lab báo HOST/LOADGEN và toolsReady=true, chưa chứng minh tài nguyên/daemon hay năng lực phát tải của host. Container có git/k6 trong PATH, không có rg/docker; dùng Python stdlib cho kiểm tra tài liệu, không cài thêm công cụ. Đã trao đổi TDN/DMN/TTN/DHN; TTN đối chiếu đặc tả/giao diện tóm tắt, chưa đọc patch hoặc chạy lại kiểm tra HXN, không coi là xác minh độc lập.
+
+Lệnh đã chạy qua vm_exec: `python3 -c <harness stdlib D01-HXN>` (đọc hai Markdown thực, mở rộng matrix, tái sinh/validate CSV và thử input sai) và `git -c core.whitespace=cr-at-eol diff --check`, cwd `.`. Toàn bộ đối số Python, stdout/stderr/exit nằm trong log công cụ của task. Git dùng cr-at-eol vì tài liệu gốc CRLF; vẫn kiểm tra khoảng trắng cuối dòng.
+
+Python stdout của lần kiểm tra đạt:
+
+```text
+OK scope; Q01-Q15 and system progress blocks unchanged; AGENTS unchanged
+OK matrix: core=54 advanced=42 main=96 confirmation=8 total=104; paired n=5
+OK A4: 60 sweeps / 60000 requests; 5 distinct collision-free sorted keysets
+OK schema: 8 ordered columns; exact documented CSV regenerated; four profiles accepted
+OK schema: 16 invalid-input mutations rejected
+OK seeds: 5 blocks reproducible; delay stream independent of uniform/hot-ID client selection; 1000 prefixes
+OK offsets: 120s warm-up disjoint; shared 180s prefix of 300s schedule; drain creates no rows
+OK validity/protocol references; documentation design check only, no service benchmark
+```
+
+Python exit=0, stderr rỗng. Git diff-check exit=0, stdout/stderr rỗng. Lỗi trung gian đã sửa trước khi đạt: chèn chuỗi làm lặp nội dung (đã kiểm bảo toàn lại tài liệu); harness lấy sai offset header bảng (đã sửa parser). Một lệnh wrapper dài bị adapter từ chối `Invalid command argv`, không chạy; đã dùng lại harness trực tiếp thành công. Các kiểm tra trên dùng dữ liệu tổng hợp, không có số đo hiệu năng.
+
+Kiểm tra thêm khối `Documents, links and secret boundaries` trích nguyên từ `.github/workflows/nt533-ci.yml` bằng `python3 -c` qua vm_exec: exit=0, stderr rỗng; stdout: `Document, relative-link and public-repository boundary checks passed`. Đây là chạy khối kiểm tra tài liệu tại Ubuntu, không tuyên bố GitHub CI/pipeline đã chạy.
+
+Bàn giao ghi chú cho **cả AGENTS.md, 01_KE_HOACH_DO_AN.md và 02_CO_SO_LY_THUYET.md**: bộ điều phối xác minh rồi cập nhật tiến độ có cấu trúc trước commit, bảo toàn worker khác. HXN chỉ sửa thân hai tệp trong phạm vi, không sửa AGENTS.md/JSON hệ thống. Giữ trạng thái Matrix/schema là thiết kế; test tài liệu đã chạy; chưa có N/R_ref/VU/digest/pilot/raw benchmark. Chưa kiểm dịch vụ, Real-IP, fault/mapping thật, CI/merge/deploy; inventory host/năng lực phát tải còn cần adapter/owner thu bằng chứng. Chờ bộ điều phối xác nhận pipeline, không tự commit/push hoặc chuyển ngày.
+
+<!-- D01-HXN_DESIGN_CHECK_END -->
+
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
-[]
+[
+  {
+    "id": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51:code",
+    "taskId": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51",
+    "member": "HXN",
+    "pccvId": "D01-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T07:45:36.115Z",
+    "base": "c73d70eac79395d2bbf83821acbe31d592150381",
+    "files": [],
+    "tests": [
+      {
+        "program": "bash",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  }
+]
 ```
 <!-- NT533_PROGRESS_END -->

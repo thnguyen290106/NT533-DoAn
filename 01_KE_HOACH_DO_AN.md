@@ -349,7 +349,7 @@ k6 raw + NGINX/app log + container/JVM metrics --> analyzer --> hình/bảng
 A4 chỉ thêm I4 tạm thời cho Inventory: tổng 10 backend trong phép đo mapping.
 ```
 
-**Routing benchmark:** ingress lab `/bench/catalog` proxy tới Catalog `/internal/bench`; `/bench/inventory` proxy tới Inventory `/internal/bench`. Không đưa route lab lên Internet. API public dùng `/api/...`. Mẫu config minh họa nằm trong file lý thuyết; phải chạy `nginx -t` và smoke-test route thật trước benchmark.
+**Routing benchmark:** ingress lab `/bench/catalog` proxy tới Catalog `/internal/bench`; `/bench/inventory` proxy tới Inventory `/internal/bench`. Không đưa route lab lên Internet. API public dùng `/api/...`. Mẫu config minh họa nằm trong file lý thuy���t; phải chạy `nginx -t` và smoke-test route thật trước benchmark.
 
 **Đường đo:** direct upstream qua NGINX để cô lập thuật toán; luồng quote để quan sát tác động xuyên dịch vụ. B3 dùng RR/LC/IPH trên cả ba upstream, với IP nội bộ mà NGINX thực sự nhìn thấy. Không giả định IP của client tự truyền qua lời gọi Order; ghi rõ downstream IPH có thể hash địa chỉ của Order. CH-ID/A4 đo trên Inventory, không mở rộng thêm fan-out client-ID trong 2 tuần.
 
@@ -457,7 +457,7 @@ A1 thêm delay cố định cho đúng I3 trước khi run, không đổi CPU qu
 | Quote | B3: nghiệp vụ xuyên dịch vụ | SKU/quantity cố định, Catalog→Inventory tuần tự, cùng fan-out và timeout; validate tổng tiền và tồn kho |
 | Mapping | A4: affinity/remapping | Endpoint nhẹ, output instance ID; rate thấp để không trộn quá tải vào mapping |
 
-Trace tối thiểu: `request_index, request_id, client_id, effective_ip, profile, product_id, quantity`. Chọn profile và client bằng hai luồng seed độc lập để không vô tình gắn hot-client với slow-request. Lưu checksum file. Mọi thuật toán trong một block dùng cùng trace; tên ID không phụ thuộc VU vì VU có thể được cấp phát khác nhau.
+Trace đầu vào theo Q04/7.1A: `request_index, request_id, client_id, effective_ip, profile, delay_class, product_id, quantity`. Chọn profile và client bằng hai luồng seed độc lập để không vô tình gắn hot-client với slow-request. Lưu checksum file. Mọi thuật toán trong một block dùng cùng trace; tên ID không phụ thuộc VU vì VU có thể được cấp phát khác nhau.
 
 **IP cho B1/B2/A1/A2:** ingress test riêng, chỉ tin IP header từ đúng load generator; 1.000 địa chỉ lab từ các `/24` khác nhau, không chỉ đổi octet cuối. Log peer gốc và effective IP để chứng minh. Đây là mô phỏng khóa IP, không giả nhận là nhiều mạng vật lý. Nếu có topology source-IP thật không SNAT thì dùng và ghi rõ. Với A3 effective IP giống nhau, chỉ client-ID thay đổi.
 
@@ -490,6 +490,29 @@ NGINX IPH dùng ba octet IPv4 đầu hoặc toàn IPv6; VU không đồng nghĩa
 
 Mỗi workload có `R_ref` riêng. B0 dùng M/H của B1, không rate riêng theo công suất 1 replica. A1/A2/A3 dùng M của B2. B2/M khỏe là đối chứng A1/A2; A3 chạy các control RR/LC ngay trong điều kiện NAT để tránh so chéo nguồn IP.
 
+### 6.3A. Matrix v0 — sản phẩm thiết kế D01-HXN
+
+Matrix v0 diễn giải ma trận NT533-v1 ở 6.3 thành các cell có thể kiểm tra, chưa phải ledger đã chạy. `cell_id=(scenario,condition,algorithm)`; block là lần lặp ghép cặp, không phải một request. Core gồm B0–B4 (B4 là diagnostic); advanced gồm A1–A4. Các control RR/LC/IPH trong advanced vẫn thuộc scenario advanced, không cộng lại vào core.
+
+| Nhóm | Scenario | Condition | Algorithms | Blocks chính | Số run chính | RQ |
+|---|---|---|---|---|---:|---|
+| core | B0 | M,H | RR | 1,2,3 | 6 | RQ5 |
+| core | B1 | M,H | RR,LC,IPH | 1,2,3 | 18 | RQ1,RQ5 |
+| core | B2 | M,H | RR,LC,IPH | 1,2,3 | 18 | RQ1 |
+| core | B3 | M | RR,LC,IPH | 1,2,3 | 9 | RQ5 |
+| core-diagnostic | B4 | M | Direct | 1,2,3 | 3 | RQ5 |
+| advanced | A1 | M | RR,LC,IPH | 1,2,3 | 9 | RQ2 |
+| advanced | A2 | M | RR,LC,IPH | 1,2,3 | 9 | RQ2 |
+| advanced | A3 | uniform,hot-ID | RR,LC,IPH,CH-ID | 1,2,3 | 24 | RQ3 |
+
+Tổng core **54**, advanced hiệu năng **42**, tổng chính **96**. Hai contrast xác nhận thêm block **4,5**: B2/H chỉ RR và LC (**4** run core); A3/uniform chỉ IPH và CH-ID (**4** run advanced). Không thêm block 4–5 cho thuật toán/condition khác: tổng **104**, gồm core **58** và advanced hiệu năng **46**. Mỗi phía của từng contrast có đúng 5 block.
+
+A4 là **advanced-mapping**, không có cell M/H hay percentile hiệu năng: `variant∈{GH-ID,CH-ID}`, `keyset_seed∈{53401,53402,53403,53404,53405}`, `membership∈{3-before,4,3-after}`, `sweep∈{1,2}`. Hai nhãn membership ba backend phải tách biệt dù cùng tập I1–I3. Tích Descartes = **60 sweep**, mỗi sweep đúng **1.000** key → **60.000** request; hai sweep cùng snapshot là kiểm tra stability, không tăng n độc lập từ 5 thành 10.
+
+Input từng cell lấy đúng 6.1/Q04: B0/B1 CPU, B2/A1/A2/A3 Mixed-delay, B3 quote, B4 CPU trực tiếp C1; A4 mapping. B0/B1/B4 dùng rate CPU đã pilot; B2 dùng rate Mixed; A1/A2/A3 dùng M Mixed; B3 dùng M Quote. A3 condition là phân bố ID, cả hai condition đều ở M. Các rate, N và VU chưa đo để `null`, không phát tải từ Matrix v0 trước G3. A1 extra=300 ms chỉ I3; A2 membership cấu hình vẫn là I1–I3 khi stop/start; chỉ A4 thêm/bỏ I4.
+
+B2/M → A1 → A2 giữ cặp algorithm/block/trace và reset theo Q05/Q11; phần đo 180 s là prefix của lịch 300 s A2. Schedule khóa trước kết quả, seed 53300; các nhóm algorithm được đảo thứ tự nhưng không phá chuỗi đối chứng này. Pilot, smoke, demo, attempt lỗi và rerun có nhãn/ID riêng, không tính thêm n chính hay thay raw cũ.
+
 ### 6.4. Một run từ đầu đến cuối
 
 1. **Preflight:** đúng commit/image/config hash; membership; seed/trace; máy phát tải; log disk; backend ready; profile/fault reset; kiểm tra input hợp lệ.
@@ -519,6 +542,66 @@ Mỗi workload có `R_ref` riêng. B0 dùng M/H của B1, không rate riêng the
 - Summary mỗi run: `sent, completed, success, errors, dropped, successful_rps, mean_ms, p95_ms, p99_ms, per_instance_counts, cv, jain, run_validity`.
 - Mapping CSV: `seed, variant, membership, sweep, client_id, instance_id, status, config_hash`; không đưa client-ID vào Prometheus label.
 - Log: requestId, service, instanceId, phase, algorithm, effective IP/peer, upstream endpoint, status và thời gian. Tất cả thời gian có đơn vị, timestamp UTC; secret/header nhạy cảm không log.
+
+### 7.1A. Schema trace v0 — input, seed và validity D01-HXN
+
+Đây là thiết kế cho CSV đầu vào của Q04; `manifest.schema_version=1` vẫn giữ nguyên Q06. Trace là lịch chọn input đã sinh trước chạy; timestamp, status, latency, instance quan sát thuộc raw/log. Không suy backend hoặc thời điểm hoàn tất từ trace.
+
+**Định dạng cố định:** UTF-8 không BOM, xuống dòng LF, có header đúng thứ tự dưới đây; mỗi dòng đúng 8 cột, không cột dư/thiếu. Ô không áp dụng là chuỗi rỗng, không dùng `null`, `N/A` hoặc 0 để thế ô trống. CSV dùng quy tắc quote của thư viện `csv`, các giá trị hiện tại không cần quote.
+
+| Cột | Kiểu CSV và ràng buộc | Ý nghĩa/điều kiện |
+|---|---|---|
+| request_index | Số nguyên thập phân không âm, dạng `0` hoặc `[1-9][0-9]*`, bắt đầu 0, tăng đúng 1, không trùng | Vị trí duy nhất trong file; chọn bằng index toàn cục từ `scenario.iterationInTest`, không VU |
+| request_id | Regex `^[0-9a-f]{32}$`, duy nhất trong trace | 32 hex đầu SHA-256 UTF-8 của `trace_id:request_index`; echo/join ở listener lab |
+| client_id | Regex `^c-[0-9a-f]{16}$`, thuộc pool đã khóa | Client tổng hợp ổn định, có thể lặp nhiều dòng; không phải request ID hay người dùng đã xác thực |
+| effective_ip | IPv4 canonical hoặc rỗng theo mode bên dưới | IP dự kiến tại ingress; phải đối chiếu log, không coi giá trị CSV là bằng chứng Real-IP |
+| profile | Enum `cpu-fixed,mixed-delay,quote,mapping` | Chọn hành vi/route đã chốt; không phải tên algorithm |
+| delay_class | Enum `fast,slow` khi mixed-delay; rỗng ở profile khác | Delay cơ sở 20/200 ms; extra I3 ở manifest/config, không sửa ô thành 320/500 |
+| product_id | Chính xác `P001` khi quote; rỗng ở profile khác | Trace benchmark không trộn case nghiệp vụ lỗi có chủ ý |
+| quantity | Chính xác chuỗi CSV `2` khi quote; rỗng ở profile khác | Runner chuyển thành JSON integer 2, không gửi chuỗi hoặc query |
+
+`trace_id` là định danh input ổn định, ghi trong manifest; không chứa algorithm, UTC hay attempt. Cùng input so sánh và rerun dùng lại trace_id/bytes/checksum. Một request_id có thể xuất hiện ở nhiều run ghép cặp, nên khóa join liên-run là `(run_id,request_id)`; downstream thêm `call_id`. Không khử trùng dữ liệu giữa các run theo request_id đơn lẻ.
+
+Pool client j=0..999 lấy công thức Q04; collision → abort. B1/B2/A1/A2 dùng uniform và IP `10.(64+j//256).(j%256).10`; B0 dùng input CPU cùng họ B1 cho so sánh 1→3 replica. A3 dùng pool cùng block, effective_ip luôn `10.250.0.10`, cả uniform và hot-ID. B3/B4 giữ ID tổng hợp để nối trace nhưng không dùng ID để chọn backend; `effective_ip` để rỗng, `ip_mode` ghi nguồn thực và log lưu IP thật từng hop (B4 không có NGINX ingress). A4 cũng để effective_ip rỗng, giữ nguồn thực giống nhau giữa hai variant, ghi IP quan sát/mode trong manifest; key routing chỉ là client_id.
+
+Ánh xạ runner: cpu-fixed → GET lab `/bench/catalog?profile=cpu-fixed`; mixed-delay → GET lab `/bench/inventory?profile=mixed-delay&delayClass=<fast|slow>`; mapping → GET lab `/bench/inventory?profile=mapping`; quote → POST lab `/api/orders/quote`, JSON `{"productId":"P001","quantity":2}`. B4 gọi C1 private `/internal/bench?profile=cpu-fixed` theo đường được cấp, không mở port mới. Request ID đi vào `X-Request-ID`; ID/IP lab chỉ đặt theo mode đã khóa và trust boundary Q04. Không thêm query `profile` vào quote, delay/vòng lặp tùy ý vào request, hay header giả nguồn vào B3/B4.
+
+**Seed và metadata để tái sinh:**
+
+| Mục | Giá trị/nguồn đã khóa | Cách dùng |
+|---|---|---|
+| block_id → client_seed | 1→53301, 2→53302, 3→53303, 4→53304, 5→53305 | `random.Random(seed)`; mỗi trace tạo RNG mới |
+| delay_seed | client_seed + 100000 | RNG riêng; mỗi dòng mixed-delay dùng `random()<0.8` → fast, còn lại slow |
+| uniform | RNG client `randrange(1000)` mỗi dòng | Tần suất kỳ vọng đều; không ép mỗi ID đúng cùng count |
+| hot-ID | RNG client `random()<0.8` chọn j=0; nếu không `randrange(1,1000)` | 80% là xác suất, báo tỷ lệ thực tế, không loại trace vì không đúng 80% tuyệt đối |
+| schedule_seed | 53300 | Chỉ thứ tự chạy, không tiêu thụ RNG client/delay |
+| bootstrap_seed | 53399 | Chỉ phân tích paired bootstrap 10.000 lần, không sinh workload |
+| A4 keyset_seed | 53401..53405 | Pool cùng công thức client; sort ID tăng dần, 2 sweep cùng keyset, keysets phải khác nhau |
+
+Để tái lập, manifest/protocol khóa thêm `trace_id,trace_schema,trace_rows,client_seed,delay_seed,client_mode,ip_mode,generator_version,python_version,phase_offsets,trace_sha256` bên cạnh trường Q06; A4 có keyset/weight CSV và hash riêng. Bytes file hoàn chỉnh được hash SHA-256 sau xuất; không hash riêng các cột rồi gọi là checksum file. Không đổi generator/Python giữa chiến dịch. Seed không thay thế checksum.
+
+Warm-up và đo dùng các dải index không giao nhau trong cùng file. Nếu runner dùng nhiều k6 scenario làm `iterationInTest` bắt đầu lại từ 0, cộng `phase_offsets[phase]` đã khóa; không dùng lại row/ID giữa phase. File phải có tối thiểu `rate × (warmup + measurement)` dòng (rate nguyên, thời gian giây), cùng warm-up 120 s hoặc 300 s theo Q05. Họ B2/M–A1–A2 sinh đủ lịch dài nhất 300 s đo và dùng cùng offset/prefix cho phần ngắn hơn. Drain không phát request mới. Hết trace hoặc index vượt biên → abort/invalid, không modulo hoặc tự sinh thêm.
+
+**Ví dụ input tổng hợp để kiểm schema, không phải raw benchmark:** trace_id=`v0-example-b1`, block=1, client_mode=uniform, ip_mode=simulated-prefix; ba dòng đầu Mixed-delay, không đại diện một run đủ tải.
+
+```csv
+request_index,request_id,client_id,effective_ip,profile,delay_class,product_id,quantity
+0,4da53a737721909216a8e581cd5f1a0b,c-35804344e33e8c67,10.65.206.10,mixed-delay,fast,,
+1,bd21d2459ad1bfce31da695f6c23ad4b,c-1edfb1dd7110af72,10.64.19.10,mixed-delay,fast,,
+2,f8a716c3c1bb6d97146eef33a6b2b8ff,c-28892eb830cd18a0,10.66.80.10,mixed-delay,fast,,
+```
+
+**Validity được audit tách khỏi SLO:**
+
+| Lớp | Hợp lệ khi | Khi không đạt |
+|---|---|---|
+| Input/preflight | Đúng schema/profile/seed/hash/offset, cùng trace trong cặp, target và phiên bản khóa; membership, ready, IP trust có evidence | Dừng trước phát tải; nếu đã chạy, invalid với lý do, giữ raw |
+| Client/cohort | Trong measurement-window, actual sent ≥99% target (=rate×T), dropped=0, đủ raw/log/manifest, mọi request kết thúc/timeout được theo dõi đến drain | invalid khi hụt tải/thiếu dữ liệu/pending cuối drain; không biến missing thành 0 |
+| Contract | HTTP 200 khớp body/header/fixture/profile/instance thuộc membership | 200 sai body do bug: lỗi contract, sửa và chạy lại toàn bộ cell bị ảnh hưởng, giữ bản cũ |
+| A2/A4 control | A2 có lệnh/exit/stop/start/ready thực; A4 có endpoint identity, config hash/generation, drain ≤30 s, hai sweep đủ 1.000 key và mapping trùng 100% | Không khẳng định fault/remap khi thiếu evidence; snapshot A4 invalid thì rerun cả snapshot với snapshot/run ID mới, giữ nguyên client-ID/keyset cũ |
+| Performance | Lỗi/timeout/5xx do backend được giữ trong tổng error, latency/RPS và SLO theo Q05/Q06 | Run có thể valid nhưng SLO fail; không loại thuật toán vì kết quả xấu |
+
+Các reason khi audit phải chỉ tới file/row/event thiếu hoặc sai, không dùng một cờ pass chung cho validity và performance. `status/invalid_reason/supersedes` giữ trong manifest; SLO verdict riêng trong summary. Không có mẫu → null/N/A; thiếu mẫu p99/recovery ghi cờ theo Q05/Q06, không tự suy run invalid chỉ vì ít mẫu thành công do overload. Mapping lỗi/schema sai không được tính như remap và không bỏ key lỗi khỏi mẫu số. Nếu sửa code/config/profile/SLO ảnh hưởng so sánh, áp dụng Q07: protocol_version mới và chạy lại các cell bị ảnh hưởng; không gộp khác version.
 
 ### 7.2. Repository đã chọn
 
@@ -639,8 +722,153 @@ Không tự hạ ngưỡng SLO sau khi thấy kết quả. Không loại lỗi d
 
 **Việc làm ngay:** triển khai theo Q01–Q07; nhóm trưởng xác nhận ngày bắt đầu thật nếu khác lịch Excel, gửi mô tả advanced và tạo issue từ PCCV; Nhật kiểm kê HOST/LOADGEN. Không họp để chọn lại RQ/API/scope đã ghi. D8 đo các giá trị còn phụ thuộc phần cứng bằng quy tắc Q05, không bịa số để đóng task.
 
+<!-- D01-HXN_DESIGN_CHECK_BEGIN -->
+### Bằng chứng D01-HXN — kiểm tra thiết kế trên Ubuntu
+
+Task `6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51`, đợt `cb39b2e0e86262365cd1378893add46f33bd413287cd1a68`. HXN bổ sung Matrix v0 (6.3A), schema trace (7.1A) và phương pháp (12.2A); không đổi RQ/API/PCCV/protocol. Đây là sản phẩm thiết kế D01, không xác nhận benchmark hay task ngày sau đã hoàn thành.
+
+Môi trường kiểm tra: container Ubuntu riêng của task trên vai trò LOADGEN, Python 3.12.3, cwd `/workspace`. Broker get_lab báo HOST/LOADGEN và toolsReady=true, chưa chứng minh tài nguyên/daemon hay năng lực phát tải của host. Container có git/k6 trong PATH, không có rg/docker; dùng Python stdlib cho kiểm tra tài liệu, không cài thêm công cụ. Đã trao đổi TDN/DMN/TTN/DHN; TTN đối chiếu đặc tả/giao diện tóm tắt, chưa đọc patch hoặc chạy lại kiểm tra HXN, không coi là xác minh độc lập.
+
+Lệnh đã chạy qua vm_exec: `python3 -c <harness stdlib D01-HXN>` (đọc hai Markdown thực, mở rộng matrix, tái sinh/validate CSV và thử input sai) và `git -c core.whitespace=cr-at-eol diff --check`, cwd `.`. Toàn bộ đối số Python, stdout/stderr/exit nằm trong log công cụ của task. Git dùng cr-at-eol vì tài liệu gốc CRLF; vẫn kiểm tra khoảng trắng cuối dòng.
+
+Python stdout của lần kiểm tra đạt:
+
+```text
+OK scope; Q01-Q15 and system progress blocks unchanged; AGENTS unchanged
+OK matrix: core=54 advanced=42 main=96 confirmation=8 total=104; paired n=5
+OK A4: 60 sweeps / 60000 requests; 5 distinct collision-free sorted keysets
+OK schema: 8 ordered columns; exact documented CSV regenerated; four profiles accepted
+OK schema: 16 invalid-input mutations rejected
+OK seeds: 5 blocks reproducible; delay stream independent of uniform/hot-ID client selection; 1000 prefixes
+OK offsets: 120s warm-up disjoint; shared 180s prefix of 300s schedule; drain creates no rows
+OK validity/protocol references; documentation design check only, no service benchmark
+```
+
+Python exit=0, stderr rỗng. Git diff-check exit=0, stdout/stderr rỗng. Lỗi trung gian đã sửa trước khi đạt: chèn chuỗi làm lặp nội dung (đã kiểm bảo toàn lại tài liệu); harness lấy sai offset header bảng (đã sửa parser). Một lệnh wrapper dài bị adapter từ chối `Invalid command argv`, không chạy; đã dùng lại harness trực tiếp thành công. Các kiểm tra trên dùng dữ liệu tổng hợp, không có số đo hiệu năng.
+
+Kiểm tra thêm khối `Documents, links and secret boundaries` trích nguyên từ `.github/workflows/nt533-ci.yml` bằng `python3 -c` qua vm_exec: exit=0, stderr rỗng; stdout: `Document, relative-link and public-repository boundary checks passed`. Đây là chạy khối kiểm tra tài liệu tại Ubuntu, không tuyên bố GitHub CI/pipeline đã chạy.
+
+Bàn giao ghi chú cho **cả AGENTS.md, 01_KE_HOACH_DO_AN.md và 02_CO_SO_LY_THUYET.md**: bộ điều phối xác minh rồi cập nhật tiến độ có cấu trúc trước commit, bảo toàn worker khác. HXN chỉ sửa thân hai tệp trong phạm vi, không sửa AGENTS.md/JSON hệ thống. Giữ trạng thái Matrix/schema là thiết kế; test tài liệu đã chạy; chưa có N/R_ref/VU/digest/pilot/raw benchmark. Chưa kiểm dịch vụ, Real-IP, fault/mapping thật, CI/merge/deploy; inventory host/năng lực phát tải còn cần adapter/owner thu bằng chứng. Chờ bộ điều phối xác nhận pipeline, không tự commit/push hoặc chuyển ngày.
+
+<!-- D01-HXN_DESIGN_CHECK_END -->
+
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
-[]
+[
+  {
+    "id": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51:code",
+    "taskId": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51",
+    "member": "HXN",
+    "pccvId": "D01-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T07:45:36.115Z",
+    "base": "c73d70eac79395d2bbf83821acbe31d592150381",
+    "files": [],
+    "tests": [
+      {
+        "program": "bash",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  }
+]
 ```
 <!-- NT533_PROGRESS_END -->
