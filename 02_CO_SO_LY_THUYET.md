@@ -49,6 +49,29 @@ RequestId public: NGINX tạo `$request_id`, ghi đè header ngoài. Ingress lab
 
 Test contract bắt buộc: list đủ ba sản phẩm; P001×2 → 200/200000; P002×3 → 200/750000; P002×4 và P003×1 → 409; P999 → 404; ID sai/quantity 0,11,2.5,"2",null/trường thừa → 400; sai content-type → 415; giả lập từng lỗi downstream → đúng 502/503/504. Kiểm tra cả body, metadata và số lần gọi, không chỉ status.
 
+#### Q02-TTN. Hợp đồng Inventory dùng cho triển khai D01-TTN
+
+Phần này cụ thể hóa Q02, không thêm API ghi. Inventory chỉ sở hữu `productId` và `availableStock`; không gọi Catalog/Order, không reservation hoặc trừ tồn. `availableStock` là JSON integer không âm, đơn vị **sản phẩm**; không dùng chuỗi, float, phần trăm hoặc giá tiền. Fixture đọc một lần, bất biến và giống nhau trên mọi replica; fixture thiếu/sai kiểu/trùng ID làm readiness fail theo Q08.
+
+| Request GET | HTTP / phần body nghiệp vụ ngoài metadata |
+|---|---|
+| `/api/inventory/P001` | 200 / `{"productId":"P001","availableStock":100}` |
+| `/api/inventory/P002` | 200 / `{"productId":"P002","availableStock":3}` |
+| `/api/inventory/P003` | 200 / `{"productId":"P003","availableStock":0}` |
+| `/api/inventory/P999` | 404 / `PRODUCT_NOT_FOUND` |
+| `/api/inventory/p001`, `/api/inventory/P01` | 400 / `INVALID_INPUT` |
+| `/api/inventory/P001?quantity=1` | 400 / `INVALID_INPUT` (API không nhận query) |
+
+GET tồn 0 vẫn là 200; **409 `INSUFFICIENT_STOCK` thuộc Order quote**, không thuộc GET Inventory. Thiếu segment `/api/inventory` là route không tồn tại: 404 `ROUTE_NOT_FOUND`. Method không hỗ trợ trả 405 `METHOD_NOT_ALLOWED` kèm `Allow` theo Q02; không tạo POST/PUT/DELETE cập nhật tồn. Metadata/error envelope, requestId public/lab và header giữ nguyên Q02.
+
+Ví dụ đầy đủ (ID minh họa, không phải response đã chạy):
+
+```json
+{"productId":"P001","availableStock":100,"requestId":"0123456789abcdef0123456789abcdef","instanceId":"I1"}
+```
+
+Ví dụ có `X-Request-ID: 0123456789abcdef0123456789abcdef`, `X-Instance-ID: I1`; khi gọi replica khác, chỉ instanceId/header tương ứng thay đổi. D04-TTN phải kiểm cả schema/kiểu, ba fixture, lỗi 400/404/405, header khớp body và đọc lặp không đổi tồn. Lab Inventory giữ nguyên Q04: `mixed-delay` 20/200 ms, A1 I3 thêm 300 ms; `mapping` không delay; lab tắt thì route không tồn tại. Không đưa delay vào API tồn kho.
+
 ### Q03. Stack, topology, tài nguyên và config đã chốt
 
 Chọn Spring MVC đồng bộ, Java 21, Maven Wrapper 3.9.9, Spring Boot 3.5.7; dùng BOM của Boot, không tự trộn phiên bản Spring. Image lab chọn NGINX OSS 1.28.3, k6 1.0.0, Prometheus 3.2.1, Grafana 11.6.0; analyzer Python 3.12 với stdlib, chart dùng matplotlib 3.10.1. Đây là baseline tái lập trong mạng cô lập, **không phải tuyên bố các bản này mới nhất/an toàn để đưa production**. Trước lần build phải rà advisory, nếu cần nâng patch thì cập nhật cả hai tài liệu và chạy smoke trước pilot; không đổi giữa các run chính thức. Java patch, OS/Docker/Compose thực tế và image digest chỉ được ghi từ lệnh trên HOST, không tự điền giá trị giả. `versions.lock` và manifest giữ version + digest; không dùng `latest`.
@@ -104,6 +127,41 @@ Scrape trực tiếp từng instance **5 s**, retention **15 ngày**. Custom cou
 Mỗi `results/<run_id>/` có `manifest.json,trace.csv,k6-raw.json,requests.jsonl,nginx.jsonl,app.jsonl,metrics/,events.jsonl,stdout.txt,stderr.txt,exit-code.txt,summary.json,SHA256SUMS`. Run ID: `<scenario>-<condition>-<algorithm>-b<block>-<UTC>-a<attempt>`. Rerun ID mới, manifest `supersedes` trỏ bản lỗi; không ghi đè. Manifest có schema_version=1, scenario/algorithm/condition/repeat/block_id, các seed/trace_sha256, commit/image_digests/config_sha256, host_spec/limits/topology, N/delay, target/actual rate/VU, ip_mode/key_mode, window/retry/fault, status và invalid_reason. Mapping CSV giữ schema `seed,variant,membership,sweep,client_id,instance_id,status,config_hash`; summary chứa sent/completed/success/errors/dropped/RPS/percentiles/per_instance_counts/CV/Jain/validity và sample counts. Chưa có dữ liệu → null/N/A, không thay bằng 0 thành công.
 
 Count vector luôn chứa đủ instance membership kể cả 0; all-zero CV/Jain=N/A. Analyzer phải assert `[100,100,100]` → Jain=1, `[300,0,0]` → Jain=1/3, missing-map invalid, remap 1/4=25%, weighted 80/100=80%; test timeout/error dedup, start/completion boundary, ID/profile validation, percentile n=0/1 và retry-list parser. CI: build/unit từng service; quote contract/integration; `docker compose config`, `nginx -t` cho 5 biến thể; analyzer asserts; không chạy 104 benchmark trong CI. Mọi lệnh có stdout/stderr/exit code, không chỉ ảnh dashboard.
+
+#### Q06-TTN. Từ điển nhãn, đơn vị và ranh giới đo D01-TTN
+
+Schema dưới đây áp dụng cho **custom metric** Q06 ở cả ba service. Tên/giá trị nhãn phân biệt hoa thường; không lấy nhãn trực tiếp từ path, query hoặc header chưa kiểm tra. Đây là đặc tả triển khai, chưa phải bằng chứng endpoint Prometheus đã hoạt động.
+
+| Nhãn | Giá trị/quy tắc thống nhất |
+|---|---|
+| `service` | `catalog`, `inventory`, `order` (tên logic, chữ thường) |
+| `instance` | Catalog `C1,C2,C3`; Inventory `I1,I2,I3`, chỉ A4 thêm `I4`; Order `O1,O2,O3`. Khớp `INSTANCE_ID`, body `instanceId`, header `X-Instance-ID` và log `instance_id`; không dùng container ID/IP/port làm định danh này |
+| `route` | Catalog: `/api/catalog/products`, `/api/catalog/products/{id}`; Inventory: `/api/inventory/{productId}`; Order: `/api/orders/quote`; lab ở app: `/internal/bench`. Không match route → `unknown`; lỗi 405 dùng template nếu xác định được |
+| `status` của request app | Chuỗi HTTP thực tế ba chữ số, ví dụ `200`, `400`, `404`, `409`, `500`; không gom thành `2xx`, không dùng mã nghiệp vụ. Nếu xử lý bị hủy và không có response HTTP xác định: `aborted`, không giả `200`/`499`; log status=null |
+| `profile` | Lab hợp lệ: `cpu-fixed`, `mixed-delay`, `mapping`; route quote: `quote`; API nghiệp vụ khác: `none`; lab thiếu/sai profile: `unknown`. Không đưa `delayClass` hoặc chuỗi profile lạ thành series mới |
+| `target` của downstream | Chỉ `catalog` hoặc `inventory`, emitter là `service=order`, `instance=O1/O2/O3`; không dùng URL/instance đích |
+| `status` của downstream | HTTP ba chữ số nếu đã nhận response; trước khi nhận HTTP, deadline hết → `timeout`, lỗi kết nối/I/O → `io_error`. HTTP 200 sai body vẫn có nhãn `200`; Order trả 502 và log cho biết lỗi contract, không đổi status downstream thành 502 |
+
+`nt533_requests_total` là Counter tăng một lần cho mỗi request nghiệp vụ/lab kết thúc ở app, kể cả lỗi; không đếm health/Actuator/scrape. `nt533_request_duration_seconds` là Timer có **cùng năm nhãn** `service,instance,route,status,profile`; mỗi request được count có đúng một timer observation. Đo bằng monotonic clock từ lúc vào application filter đến khi xử lý response hoàn tất/lỗi/hủy; gồm xử lý, delay và downstream ở Order, không gồm hàng chờ trước filter hoặc toàn bộ mạng tới client. Tránh double-count giữa filter, controller và exception handler.
+
+`nt533_downstream_duration_seconds{service,instance,target,status}` đo từng call thực sự được Order phát: bắt đầu trước gửi HTTP, kết thúc khi đọc/kiểm body xong hoặc lỗi/deadline và cancel; không ghi observation cho call chưa phát do bước trước lỗi. Quote thành công tạo 1 request Order + 1 Catalog + 1 Inventory và 2 downstream observations; không cộng chúng thành 3 client request. Quote lỗi input có 0 downstream; Catalog lỗi thì không gọi Inventory. Không retry theo Q02.
+
+Prometheus exposition của mỗi Timer gồm `_seconds_count` (số observation), `_seconds_sum` (tổng giây), `_seconds_bucket{le="..."}` (count tích lũy). Bucket hữu hạn giữ đúng Q06: `[0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2,5]` giây; thêm bucket `+Inf` bằng count, không cộng các bucket tích lũy để tính số request. Không thêm counter trùng timer-count để cộng lần nữa; `nt533_requests_total` và timer-count dùng đối soát. Histogram phục vụ diagnostic; p95/p99 chính vẫn từ raw client theo Q06.
+
+Scrape trực tiếp từng app trên management 8082 nội bộ, mỗi 5 s, retention 15 ngày; không scrape qua NGINX. App xuất common tags `service/instance`; scrape app dùng `honor_labels: true` để giữ `instance=I1` thay vì nhãn mặc định `host:port`. Khi triển khai phải kiểm series sau ingestion không bị đổi thành `exported_instance` và mỗi series thuộc đúng replica; `job` là nhãn scrape, `le` là nhãn histogram, không thay nhãn nghiệp vụ. Chỉ dùng exporter nội bộ tin cậy theo Q03.
+
+| Đại lượng | Đơn vị lưu / diễn giải |
+|---|---|
+| Counter, timer-count, bucket | Request/call/observation (số đếm không âm); counter reset khi restart, dùng delta có xử lý reset, không coi mất scrape là count 0 |
+| App/downstream Timer, NGINX `request_time_s,upstream_response_time_s` | Giây; upstream thiếu thời gian là null, không thay bằng 0 |
+| Client wall latency, app log `duration_ms`, `appliedDelayMs` | Mili giây; đổi s→ms nhân 1000 đúng một lần, không lấy app timer làm latency client |
+| Throughput | Request thành công/giây theo completion-window Q06; `rate(counter)` chỉ là tốc độ phía app, chưa kiểm body hoặc client timeout |
+| CPU / RAM / GC | CPU cumulative = core-second, tốc độ = core (hiển thị 100% = 1 core, ghi quota riêng); RAM/heap = byte (MiB = byte/1048576); GC pause = giây, GC count = lần |
+| `timestamp_utc` / tỷ lệ | Timestamp UTC ISO-8601 có `Z`; elapsed dùng monotonic. Error/CV/Jain/affinity/remap lưu ratio không đơn vị, nhân 100 khi trình bày % |
+
+Không thêm requestId/clientId/productId/runId/algorithm/phase vào labels; đối chiếu log/trace/manifest theo Q06. Phân biệt **HTTP status** với kết quả contract: 200 sai body hoặc client timeout sau khi app trả 200 vẫn là client error. Dashboard histogram/counter không thay raw và không chứng minh run hợp lệ.
+
+**Checklist triển khai D04/D06 (chưa chạy ở D01):** scrape cả C/I/O và I4 chỉ A4; gọi hai productId vẫn cùng route template; lỗi profile lạ không tạo nhãn mới; health/scrape không tăng custom counter; delta counter = timer-count (kể cả lỗi/hủy), bucket đơn điệu và +Inf=count; quote fan-out đúng số call; kiểm reset/mất scrape và đổi đơn vị. Đây là điểm giao Inventory/Order, scrape của DHN và analyzer của HXN.
 
 ### Q07. Ownership, nghiệm thu và thay đổi sau chốt
 
@@ -798,8 +856,86 @@ Các liên kết đặt cạnh nội dung là nguồn gốc để tra cứu; khi
 
 **Chưa thực hiện:** xây dựng ứng dụng, kiểm tra cấu hình mẫu bằng NGINX và chạy thực nghiệm. Không có số liệu hiệu năng thật trong tài liệu này.
 
+#### D01-TTN. Bằng chứng kiểm tra và ghi chú bàn giao
+
+- Task `b9513e18f4738431f4ff86b37a604f2fa1aa6f59a276cef9`, đợt `cb39b2e0e86262365cd1378893add46f33bd413287cd1a68`: bổ sung Q02-TTN/Q06-TTN đồng nhất trong hai Markdown; chỉ thiết kế Inventory/metric, giữ nguyên API v1, fixture, bucket và protocol gốc.
+- Môi trường kiểm tra thật qua `vm_exec` tại workspace Ubuntu được cấp: Linux 6.8.0-149-generic, Python 3.12.3; workspace ban đầu sạch, chỉ có tài liệu và CI, chưa có source service. `rg` chưa cài; dùng Python đọc/đối chiếu, đã báo DHN, không cần cài thêm cho D01.
+- Lệnh `python3 -c <khối kiểm tra Documents, links and secret boundaries trích từ .github/workflows/nt533-ci.yml>`: stdout `Document, relative-link and public-repository boundary checks passed`, stderr rỗng, exit 0.
+- Lệnh `python3 -c <InventoryMetricSpec: unittest 7 ca trong biên nhận vm_exec>`: kiểm hai bản giống nhau, parse fixture/example JSON và metadata, lỗi API, nhãn hữu hạn, bucket/đơn vị/fan-out, bảo toàn toàn bộ nội dung gốc và AGENTS/khối hệ thống, diff chỉ hai tệp được giao. stdout rỗng; stderr kết thúc `Ran 7 tests ... OK`; exit 0. Đây là kiểm tra **đặc tả**, không phải test ứng dụng.
+- `git diff --check` ban đầu exit 2 do CRLF bị nhận là trailing whitespace (6/7 ca đạt). Giữ nguyên CRLF của tài liệu; kiểm lại bằng `git -c core.whitespace=trailing-space,space-before-tab,cr-at-eol diff --check`: stdout/stderr rỗng, exit 0; bộ 7 ca chạy lại đạt. Không đổi Git config hoặc nội dung gốc để che lỗi.
+- Trao đổi cùng đợt: DMN xác nhận Catalog không sở hữu stock; TDN phụ trách sửa tóm tắt ID sai format 400/ID không có 404 trong phần của TDN; HXN giữ trace/raw và đơn vị; DHN giữ scrape trực tiếp management 8082 nội bộ, instance hữu hạn, I4 chỉ A4. Nội dung workspace người khác chưa được đọc hoặc sửa.
+- Ghi chú cần bộ điều phối cập nhật vào **cả AGENTS.md, 01_KE_HOACH_DO_AN.md và 02_CO_SO_LY_THUYET.md**: D01-TTN đã soạn/kiểm đặc tả, bằng chứng stdout/stderr/exit trong biên nhận `vm_exec`; giữ các kết quả lỗi ban đầu và kết quả kiểm lại. AGENTS.md ngoài phạm vi sửa thân của TTN; khối tiến độ JSON ở cả ba tệp do bộ điều phối hợp nhất sau xác minh, trước commit.
+- Chưa chạy API/JUnit, Prometheus ingestion, Docker/NGINX, benchmark hoặc deploy vì chưa có source/config triển khai trong task thiết kế này. Checklist D04/D06 ở Q06-TTN là nghiệm thu tương lai. Không tự commit/push/PR/merge; chờ bộ điều phối xác nhận pipeline, không chuyển ngày.
+
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
-[]
+[
+  {
+    "id": "b9513e18f4738431f4ff86b37a604f2fa1aa6f59a276cef9:code",
+    "taskId": "b9513e18f4738431f4ff86b37a604f2fa1aa6f59a276cef9",
+    "member": "TTN",
+    "pccvId": "D01-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-17T07:39:35.789Z",
+    "base": "c73d70eac79395d2bbf83821acbe31d592150381",
+    "files": [],
+    "tests": [
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 1
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 2
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  }
+]
 ```
 <!-- NT533_PROGRESS_END -->
