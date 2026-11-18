@@ -146,6 +146,31 @@ services:
       timeout: 2s
       start_period: 30s
       retries: 3
+  grafana:
+    image: grafana/grafana:11.6.0@sha256:62d2b9d20a19714ebfe48d1bb405086081bc602aa053e28cf6d73c7537640dfb
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+    volumes:
+      - ../../observability/grafana/datasource.yml:/etc/grafana/provisioning/datasources/nt533.yml:ro
+      - ../../observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/nt533.yml:ro
+      - ../../observability/dashboard.json:/var/lib/grafana/dashboards/nt533.json:ro
+      - grafana-data:/var/lib/grafana
+    ports: ["127.0.0.1:3000:3000"]
+    cpus: 0.5
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      timeout: 2s
+      start_period: 45s
+      retries: 4
 networks:
   edge:
     driver: bridge
@@ -154,3 +179,4 @@ networks:
     internal: true
 volumes:
   prometheus-data:
+  grafana-data:
