@@ -1487,6 +1487,12 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Baseline so từng byte fixture của ba JAR trong cụm và của C1 độc lập. Ghi image ID thực tế của từng replica; xác nhận cả ba image trả cùng SHA-256 của 1000 vòng (smoke) trong container lab độc lập.
 - Ubuntu HOST . · `python3 -m py_compile services/catalog/baseline.py` · exit 0.
 
+## Bàn giao D07-TTN
+
+- ADMIN trực tiếp thực hiện. Audit một cohort Quote gồm 200, Catalog 404, input 400 theo request/call ID. Sau deploy so đúng 3 request client với 6 app/gateway records, delta counter/timer từng service và 3 downstream observations.
+- Ubuntu HOST . · `python3 -m py_compile observability/verify_live.py` · exit 0.
+
+
 
 
 
@@ -1618,6 +1624,29 @@ cd services/catalog &&
     "tests": [
       {
         "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "390fee983640cc534432c926ff0e6a899eb07dbf1276e4d3:code",
+    "taskId": "390fee983640cc534432c926ff0e6a899eb07dbf1276e4d3",
+    "member": "TTN",
+    "pccvId": "D07-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:15:16.852Z",
+    "base": "8c5d4d1d579f5ca652c1f54038ad0c253dae457b",
+    "files": [
+      "observability/verify_live.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
         "exitCode": 0
       }
     ],
