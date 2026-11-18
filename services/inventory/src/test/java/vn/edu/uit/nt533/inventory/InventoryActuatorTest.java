@@ -36,6 +36,24 @@ class InventoryActuatorTest {
         assertThat(get(businessPort, "/actuator/prometheus").statusCode()).isEqualTo(404);
     }
 
+    @Test
+    void countsBusinessRequestsOnceAndDoesNotLabelIndividualProducts() throws Exception {
+        var before = get(managementPort, "/actuator/prometheus").body();
+        assertThat(before).doesNotContain("nt533_requests_total{");
+        assertThat(get(businessPort, "/api/inventory/P001").statusCode()).isEqualTo(200);
+        assertThat(get(businessPort, "/api/inventory/P002").statusCode()).isEqualTo(200);
+        var metrics = get(managementPort, "/actuator/prometheus").body();
+        assertThat(metrics.lines().anyMatch(line -> line.startsWith("nt533_requests_total{")
+                && line.contains("route=\"/api/inventory/{productId}\"") && sampleValue(line) == 2)).isTrue();
+        assertThat(metrics.lines().anyMatch(line -> line.startsWith("nt533_request_duration_seconds_count{")
+                && line.contains("service=\"inventory\"") && sampleValue(line) == 2)).isTrue();
+        assertThat(metrics).doesNotContain("requestId=", "request_id=", "route=\"/api/inventory/P001\"");
+    }
+
+    private static double sampleValue(String line) {
+        return Double.parseDouble(line.substring(line.lastIndexOf(' ') + 1));
+    }
+
     private HttpResponse<String> get(int port, String route) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + route)).GET().build();
         return http.send(request, HttpResponse.BodyHandlers.ofString());

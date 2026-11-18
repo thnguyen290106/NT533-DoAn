@@ -1510,6 +1510,12 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Khóa SHA-256 fixture chuẩn, ghi rõ workload và profile allowlist. Catalog ghi request/timer một lần theo route template và nhãn hữu hạn để phục vụ đối soát sau này.
 
+## Bàn giao D05-TTN
+
+- ADMIN trực tiếp thực hiện. Dashboard export theo service, instance và cửa sổ đã chọn. Inventory đối chiếu custom counter, timer và route template, loại health/scrape và không đưa requestId vào label.
+- Ubuntu HOST . · `python3 -m json.tool observability/dashboard.json` · exit 0.
+
+
 
 
 
@@ -2127,6 +2133,36 @@ cd services/catalog &&
       },
       {
         "program": "docker",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "9619cf5adffc7569e80a0f30752a85aca81d84986cc40cca:code",
+    "taskId": "9619cf5adffc7569e80a0f30752a85aca81d84986cc40cca",
+    "member": "TTN",
+    "pccvId": "D05-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:47:03.123Z",
+    "base": "3b0b76a3fa94bbc216fdfc798480d69b2fe7d316",
+    "files": [
+      "observability/dashboard.json",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/RequestMetadataFilter.java",
+      "services/inventory/src/test/java/vn/edu/uit/nt533/inventory/InventoryActuatorTest.java",
+      "observability/COUNTERS.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
         "exitCode": 0
       },
       {
