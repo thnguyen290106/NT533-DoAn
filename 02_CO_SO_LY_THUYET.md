@@ -1,4 +1,4 @@
-> **Vận hành v2 — chưa chạy D01:** ADMIN chọn D1–D14; năm worker thực hiện ngày được chọn, không tự chuyển ngày. Mọi task ban đầu chưa thực hiện. Code/test chạy trong workspace riêng trên Ubuntu HOST/LOADGEN; server tự Git/PR/merge theo CI và review AI, không chờ duyệt PR thông thường. Không áp ngưỡng CPU/RAM/disk để chặn bắt đầu; lỗi OOM/hết disk hoặc test thất bại vẫn phải báo thật. Các mục Windows/WSL, quyền duyệt và ngưỡng mở lab của mô hình cũ bên dưới được thay bởi hồ sơ này và AGENTS.md; số liệu, raw, RQ/API/protocol không được giả hoặc đổi để làm đẹp kết quả.
+> **Vận hành từ D3:** ADMIN chọn ngày. App giao từng lượt theo PCCV sau khi kiểm tra GitHub có quyền ghi trên repo. Worker làm độc lập, kiểm tra HOST/LOADGEN qua broker nếu cần, bàn giao qua cả ba MD. Server chỉ giao lượt sau khi commit trước đã qua kiểm thử, CI và merge. Dữ liệu benchmark và protocol phải bám đặc tả.
 
 # CƠ SỞ LÝ THUYẾT — NT533, BẢN TRIỂN KHAI 2 TUẦN
 
@@ -1429,9 +1429,50 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
 | Thời điểm UTC | 2026-11-17T08:48:21.107Z | 2026-11-17T08:48:22.330Z |
 
 **Giới hạn tài nguyên:** HOST có RAM tổng thấp hơn cả budget thường 5888 MiB và budget I4 6400 MiB, chưa tính OS/Docker. D1 chỉ hoàn tất thiết kế và ghi nhận máy thực; cần tăng RAM hoặc có quyết định điều chỉnh đồng bộ đã được duyệt trước khi chạy đủ stack/pilot. Không giảm replica/quota riêng một thuật toán, không nhận G2/G3 đạt và không thay đổi cấu hình VM trong lượt này. Route read-only không chứng minh firewall, Real-IP, cổng dịch vụ hay khả năng chịu tải.
+
+
+## Mốc triển khai D2 kiểm chứng trên hai Ubuntu
+
+Baseline D2 dùng Java 21, Spring Boot 3.5.7, Maven 3.9.9 và k6 1.0.0. C1/I1/O1 nghe 8080 bên trong Docker; management 8082 chỉ ở mạng backend. NGINX là điểm vào duy nhất cho API. Khi chạy cục bộ dùng loopback mặc định; khi nghiệm thu dùng địa chỉ HOST được cấu hình và xác minh, truyền qua NT533_BIND_IP và NT533_BASE_URL. NGINX tạo request ID public và phải đặt Host hợp lệ cho Tomcat khi tên upstream có dấu gạch dưới.
+
+Order chuyển request ID qua Catalog rồi Inventory, kiểm trường body và dùng số nguyên VND. Smoke LOADGEN kiểm list Catalog, chi tiết, Inventory tồn 0, quote, thiếu tồn và ID không hợp lệ/không tồn tại; mỗi request có ba kiểm tra status, payload và metadata. Bài đối chứng giữ HTTP 200 nhưng giảm totalPrice một đồng; chỉ kiểm payload thất bại và threshold buộc exit 99. Đây là smoke 1 VU/1 iteration; các profile lab, scrape, thử lỗi từng replica và benchmark thuộc phần sau. [Kết quả smoke D2](experiments/d2/smoke-summary.txt).
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "260ff6fb8b480986728d3b8b82043de269238b695ee9daf8:code",
+    "taskId": "260ff6fb8b480986728d3b8b82043de269238b695ee9daf8",
+    "member": "TDN",
+    "pccvId": "D02-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.935Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "services/order/.gitignore",
+      "services/order/.mvn/wrapper/maven-wrapper.properties",
+      "services/order/mvnw",
+      "services/order/mvnw.cmd",
+      "services/order/pom.xml",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderApplication.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderController.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderException.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderExceptionHandler.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/QuoteService.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/RequestMetadata.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/RequestMetadataFilter.java",
+      "services/order/src/main/resources/application.properties",
+      "services/order/src/test/java/vn/edu/uit/nt533/order/OrderHttpTest.java",
+      ".github/workflows/nt533-ci.yml"
+    ],
+    "tests": [
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51:code",
     "taskId": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51",
@@ -1646,209 +1687,42 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
     "remoteJobs": []
   },
   {
+    "id": "7d29538dc8656b6c8c651518540a128481e8daf2341539d0:code",
+    "taskId": "7d29538dc8656b6c8c651518540a128481e8daf2341539d0",
+    "member": "DHN",
+    "pccvId": "D02-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.946Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "infra/Dockerfile",
+      "infra/compose/compose.yaml",
+      "infra/compose/nginx.conf"
+    ],
+    "tests": [
+      {
+        "program": "docker",
+        "exitCode": 0
+      },
+      {
+        "program": "curl",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
     "id": "9b5ccb469808a7cac917e00996134bf7a0d417b4ed70d361:code",
     "taskId": "9b5ccb469808a7cac917e00996134bf7a0d417b4ed70d361",
     "member": "DMN",
     "pccvId": "D02-DMN",
     "state": "VERIFIED_PENDING_MERGE",
-    "recordedAt": "2026-11-18T04:31:48.309Z",
+    "recordedAt": "2026-11-18T04:59:54.950Z",
     "base": "856ebb0e017acc008d3fe016f6bca30ae846fd63",
     "files": [
-      "services/catalog/.gitignore",
-      "services/catalog/.mvn/wrapper/maven-wrapper.properties",
-      "services/catalog/mvnw",
-      "services/catalog/mvnw.cmd",
-      "services/catalog/pom.xml",
-      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogApplication.java",
-      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogController.java",
-      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogException.java",
-      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogExceptionHandler.java",
-      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogFixtureStore.java",
-      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/Product.java",
-      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/RequestMetadata.java",
-      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/RequestMetadataFilter.java",
-      "services/catalog/src/main/resources/application.properties",
-      "services/catalog/src/main/resources/catalog-products.json",
-      "services/catalog/src/test/java/vn/edu/uit/nt533/catalog/CatalogFixtureStoreTest.java",
-      "services/catalog/src/test/java/vn/edu/uit/nt533/catalog/CatalogHttpTest.java"
+      "services/catalog/mvnw"
     ],
     "tests": [
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "git",
-        "exitCode": 0
-      },
-      {
-        "program": "rg",
-        "exitCode": 127
-      },
-      {
-        "program": "git",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "mvn",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 1
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "mvn",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "git",
-        "exitCode": 0
-      },
-      {
-        "program": "git",
-        "exitCode": 0
-      },
-      {
-        "program": "mvn",
-        "exitCode": 0
-      },
-      {
-        "program": "mvn",
-        "exitCode": 1
-      },
-      {
-        "program": "mvn",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "mvn",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
-      {
-        "program": "git",
-        "exitCode": 0
-      },
-      {
-        "program": "git",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "mvn",
-        "exitCode": 1
-      },
-      {
-        "program": "bash",
-        "exitCode": 126
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "git",
-        "exitCode": 128
-      },
-      {
-        "program": "git",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "bash",
-        "exitCode": 0
-      },
-      {
-        "program": "python3",
-        "exitCode": 0
-      },
       {
         "program": "mvn",
         "exitCode": 0
@@ -2135,6 +2009,42 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
     "remoteJobs": []
   },
   {
+    "id": "ec63dd3891f3096ff6e9963d5332635c7fc5c5aa7e9a827a:code",
+    "taskId": "ec63dd3891f3096ff6e9963d5332635c7fc5c5aa7e9a827a",
+    "member": "TTN",
+    "pccvId": "D02-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.955Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "services/inventory/.gitignore",
+      "services/inventory/.mvn/wrapper/maven-wrapper.properties",
+      "services/inventory/mvnw",
+      "services/inventory/mvnw.cmd",
+      "services/inventory/pom.xml",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryApplication.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryController.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryException.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryExceptionHandler.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/RequestMetadata.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/RequestMetadataFilter.java",
+      "services/inventory/src/main/resources/application.properties",
+      "services/inventory/src/main/resources/inventory-stock.json",
+      "services/inventory/src/test/java/vn/edu/uit/nt533/inventory/InventoryHttpTest.java"
+    ],
+    "tests": [
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "curl",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
     "id": "ef72864aeabac39d94febc0692d94c3eb38f89c8884cde8b:code",
     "taskId": "ef72864aeabac39d94febc0692d94c3eb38f89c8884cde8b",
     "member": "DHN",
@@ -2350,6 +2260,26 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
       },
       {
         "program": "host-inventory",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "f63eff6bfa681667dc94b2533848dad5509e6c78df925c0b:code",
+    "taskId": "f63eff6bfa681667dc94b2533848dad5509e6c78df925c0b",
+    "member": "HXN",
+    "pccvId": "D02-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.959Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "load-tests/d2-smoke.js",
+      "experiments/d2/smoke-summary.txt"
+    ],
+    "tests": [
+      {
+        "program": "k6",
         "exitCode": 0
       }
     ],
