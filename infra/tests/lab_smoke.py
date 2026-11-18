@@ -45,7 +45,9 @@ def check(algorithm, membership, simulated=False):
         assert set(first) == expected, set(first)
     if algorithm in ('ch-id', 'gh-id'):
         assert first == [instance(client) for client in ids], 'Key moved without membership change'
-    print(json.dumps({'algorithm': algorithm, 'members': list(sorted(set(first))), 'samples': len(first)}))
+    digest = sha256(json.dumps(list(zip(ids, first)), separators=(',', ':')).encode()).hexdigest()
+    print(json.dumps({'algorithm': algorithm, 'members': list(sorted(set(first))), 'samples': len(first),
+                      'mapping_sha256': digest}))
 
 
 if __name__ == '__main__':
