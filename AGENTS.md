@@ -142,6 +142,12 @@ cd services/catalog &&
 - Ubuntu HOST . · `python3 -m unittest discover -s infra/tests -v` · exit 0.
 - Kiểm tra cấu hình/runtime bằng adapter HOST · exit 0.
 
+## Bàn giao D04-HXN
+
+- ADMIN trực tiếp thực hiện. Sinh trace UTF-8/LF từ request index, seed client và luồng delay độc lập. Test tái sinh byte/checksum, 1000 ID, 80/20 và đúng các cột quote/IP/profile.
+- Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis -p test*.py -v` · exit 0.
+
+
 
 
 
@@ -511,6 +517,34 @@ cd services/catalog &&
       },
       {
         "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "78e4160bb00160bd63cac39708a36367a8f4073ac7903d98:code",
+    "taskId": "78e4160bb00160bd63cac39708a36367a8f4073ac7903d98",
+    "member": "HXN",
+    "pccvId": "D04-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:35:47.854Z",
+    "base": "89505188bbd010678ca51f86a387202ad3fc5dfb",
+    "files": [
+      "analysis/tests/test_trace.py",
+      "analysis/trace.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
         "exitCode": 0
       },
       {
