@@ -1477,6 +1477,12 @@ cd services/catalog &&
 - ADMIN thực hiện D3. Củng cố contract Quote bằng hai HTTP call theo thứ tự Catalog rồi Inventory. Kiểm tra giá, tồn, tổng tiền, request ID và call ID của từng downstream. HTTP 502 khi Inventory trả request ID khác. Kiểm thử xuyên cụm dùng bản triển khai D3.
 - `mvn -B -ntp verify -DfailIfNoTests=true` tại `services/order` trên HOST, exit 0, 4/4 ca đạt.
 
+## Bàn giao D03-HXN
+
+- ADMIN thực hiện D3. Parser Python stdlib đọc `requests.jsonl`, k6 JSONL và log NGINX JSONL tùy chọn. Tách lỗi HTTP, transport và contract, giữ instance zero-count, percentile nearest-rank đơn vị ms và tách riêng k6 duration. Fixture kiểm tra lỗi trùng ID và unknown instance. Cohort theo manifest và aggregate theo block thuộc lượt sau.
+- `python3 -m unittest discover -s analysis -p test*.py -v` trên LOADGEN, exit 0.
+
+
 
 
 
@@ -2499,6 +2505,39 @@ cd services/catalog &&
       },
       {
         "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "e9016887071f65d1dc81ea81679494ceb7c601cebbc12ee7:code",
+    "taskId": "e9016887071f65d1dc81ea81679494ceb7c601cebbc12ee7",
+    "member": "HXN",
+    "pccvId": "D03-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:09:15.488Z",
+    "base": "025991c0564c70f69bc2965a074453e00a2e6e35",
+    "files": [
+      "analysis/analyze.py",
+      "analysis/tests/__init__.py",
+      "analysis/tests/test_analyze.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
         "exitCode": 0
       },
       {
