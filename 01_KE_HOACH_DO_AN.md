@@ -1452,6 +1452,11 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Runner trên LOADGEN kiểm trace/checksum, target lab, tool và dung lượng, dùng index theo phase. Lưu manifest với commit, digest, seed và config/protocol hash; giữ nguyên stdout/stderr, exit code, raw và lý do invalid.
 - Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis -p test*.py -v` · exit 0.
 
+## Bàn giao D05-TDN
+
+- ADMIN trực tiếp thực hiện. Review ranh giới public/lab/private, port management riêng và không route benchmark từ public. Order bổ sung metrics/log có nhãn hữu hạn, giữ status downstream thực và không đưa ID vào metric.
+
+
 
 
 
@@ -3024,6 +3029,31 @@ cd services/catalog &&
       },
       {
         "program": "host-inventory",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "f4148c2a72d3045fb6b131cfda0f46fa0bfda30261984a7e:code",
+    "taskId": "f4148c2a72d3045fb6b131cfda0f46fa0bfda30261984a7e",
+    "member": "TDN",
+    "pccvId": "D05-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:53:54.765Z",
+    "base": "2c07af9acc6ee51b08e06270a9db34bf97df85ae",
+    "files": [
+      "services/order/src/main/java/vn/edu/uit/nt533/order/QuoteService.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/RequestMetadataFilter.java",
+      "services/order/TRUST_BOUNDARY.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
