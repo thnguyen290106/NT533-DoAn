@@ -1,0 +1,7 @@
+{
+  "products": [
+    {"id": "P001", "name": "Ban phim", "price": 100000, "currency": "VND"},
+    {"id": "P002", "name": "Chuot", "price": 250000, "currency": "VND"},
+    {"id": "P003", "name": "Cap USB", "price": 50000, "currency": "VND"}
+  ]
+}

@@ -1,0 +1,57 @@
+package vn.edu.uit.nt533.catalog;
+
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/catalog/products")
+final class CatalogController {
+    private final CatalogFixtureStore store;
+
+    CatalogController(CatalogFixtureStore store) {
+        this.store = store;
+    }
+
+    @GetMapping
+    ProductList list(HttpServletRequest request) {
+        validateRequest(request);
+        RequestMetadata metadata = RequestMetadata.from(request);
+        return new ProductList(store.products(), metadata.requestId(), metadata.instanceId());
+    }
+
+    @GetMapping("/{id}")
+    ProductDetail detail(@PathVariable String id, HttpServletRequest request) {
+        validateRequest(request);
+        if (!Product.hasValidId(id)) {
+            throw invalidInput();
+        }
+        Product product = store.find(id)
+                .orElseThrow(() -> new CatalogException(
+                        HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "Product not found"));
+        RequestMetadata metadata = RequestMetadata.from(request);
+        return new ProductDetail(product, metadata.requestId(), metadata.instanceId());
+    }
+
+    private static void validateRequest(HttpServletRequest request) {
+        String query = request.getQueryString();
+        // Spring ignores matrix parameters when matching paths but keeps them in the request URI.
+        boolean hasMatrixParameters = request.getRequestURI().indexOf(';', request.getContextPath().length()) >= 0;
+        if (hasMatrixParameters || (query != null && !query.isEmpty())) {
+            throw invalidInput();
+        }
+    }
+
+    private static CatalogException invalidInput() {
+        return new CatalogException(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "Invalid request");
+    }
+
+    record ProductList(List<Product> products, String requestId, String instanceId) {}
+
+    record ProductDetail(@JsonUnwrapped Product product, String requestId, String instanceId) {}
+}
