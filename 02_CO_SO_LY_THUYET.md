@@ -1467,6 +1467,12 @@ cd services/catalog &&
 - `mvn -B -ntp verify -DfailIfNoTests=true` tại `services/inventory` trên HOST, exit 0, 5/5 ca đạt.
 - `promtool check config` trên HOST, exit 0.
 
+## Bàn giao D03-DHN
+
+- ADMIN thực hiện D3. Compose khai báo ba replica mỗi dịch vụ, healthcheck riêng, NGINX có ba upstream RR độc lập và listener nội bộ 8083 cho các call của Order. Cổng backend chỉ dùng nội bộ. Prometheus bind loopback, retention 15 ngày. Kiểm tra cả chín replica và phân phối thật ở lần triển khai tích hợp.
+- `docker compose config`, kiểm tra ranh giới Compose bản gốc/bản resolve và `nginx -t` trên HOST, exit 0.
+
+
 
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
@@ -1749,6 +1755,34 @@ cd services/catalog &&
       {
         "program": "python3",
         "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "758383a836a60fc3f6133f4b4543a22aef2745fbcea5b2ff:code",
+    "taskId": "758383a836a60fc3f6133f4b4543a22aef2745fbcea5b2ff",
+    "member": "DHN",
+    "pccvId": "D03-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:03:36.346Z",
+    "base": "dfb2c4f649ac6c265f25fe2d497ddfae9aac71dd",
+    "files": [
+      "infra/compose/compose.yaml",
+      "infra/compose/nginx.conf"
+    ],
+    "tests": [
+      {
+        "program": "docker",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
       },
       {
         "program": "python3",

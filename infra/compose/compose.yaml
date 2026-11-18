@@ -1,12 +1,12 @@
 name: nt533
 services:
-  catalog:
+  catalog-1: &catalog
     build:
       context: ../..
       dockerfile: infra/Dockerfile
       args:
         SERVICE: catalog
-    environment:
+    environment: &catalog-env
       INSTANCE_ID: C1
       JAVA_TOOL_OPTIONS: -Xms256m -Xmx256m -XX:+UseG1GC
     cpus: 0.5
@@ -19,13 +19,26 @@ services:
       timeout: 2s
       start_period: 60s
       retries: 3
-  inventory:
+
+  catalog-2:
+    <<: *catalog
+    environment:
+      <<: *catalog-env
+      INSTANCE_ID: C2
+
+  catalog-3:
+    <<: *catalog
+    environment:
+      <<: *catalog-env
+      INSTANCE_ID: C3
+
+  inventory-1: &inventory
     build:
       context: ../..
       dockerfile: infra/Dockerfile
       args:
         SERVICE: inventory
-    environment:
+    environment: &inventory-env
       INSTANCE_ID: I1
       JAVA_TOOL_OPTIONS: -Xms256m -Xmx256m -XX:+UseG1GC
     cpus: 0.5
@@ -33,22 +46,48 @@ services:
     restart: unless-stopped
     networks: [backend]
     healthcheck: *java-health
-  order:
+
+  inventory-2:
+    <<: *inventory
+    environment:
+      <<: *inventory-env
+      INSTANCE_ID: I2
+
+  inventory-3:
+    <<: *inventory
+    environment:
+      <<: *inventory-env
+      INSTANCE_ID: I3
+
+  order-1: &order
     build:
       context: ../..
       dockerfile: infra/Dockerfile
       args:
         SERVICE: order
-    environment:
+    environment: &order-env
       INSTANCE_ID: O1
-      CATALOG_URL: http://catalog:8080
-      INVENTORY_URL: http://inventory:8080
       JAVA_TOOL_OPTIONS: -Xms256m -Xmx256m -XX:+UseG1GC
+      CATALOG_URL: http://nginx:8083
+      INVENTORY_URL: http://nginx:8083
     cpus: 0.5
     mem_limit: 512m
     restart: unless-stopped
     networks: [backend]
     healthcheck: *java-health
+
+  order-2:
+    <<: *order
+    environment:
+      <<: *order-env
+      INSTANCE_ID: O2
+
+  order-3:
+    <<: *order
+    environment:
+      <<: *order-env
+      INSTANCE_ID: O3
+
   nginx:
     image: nginx:1.28.3-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
     user: "101:101"
@@ -66,16 +105,46 @@ services:
     restart: unless-stopped
     networks: [edge, backend]
     depends_on:
-      catalog:
+      catalog-1:
         condition: service_healthy
-      inventory:
+      catalog-2:
         condition: service_healthy
-      order:
+      catalog-3:
+        condition: service_healthy
+      inventory-1:
+        condition: service_healthy
+      inventory-2:
+        condition: service_healthy
+      inventory-3:
+        condition: service_healthy
+      order-1:
+        condition: service_healthy
+      order-2:
+        condition: service_healthy
+      order-3:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 5s
       timeout: 2s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v3.2.1@sha256:6927e0919a144aa7616fd0137d4816816d42f6b816de3af269ab065250859a62
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=15d"]
+    volumes:
+      - ../../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports: ["127.0.0.1:9090:9090"]
+    cpus: 0.5
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [edge, backend]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"]
+      interval: 5s
+      timeout: 2s
+      start_period: 30s
       retries: 3
 networks:
   edge:
@@ -83,3 +152,5 @@ networks:
   backend:
     driver: bridge
     internal: true
+volumes:
+  prometheus-data:
