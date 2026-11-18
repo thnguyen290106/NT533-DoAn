@@ -1503,6 +1503,11 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Dry-run Quote trên LOADGEN, raw→summary→PNG có checksum và nguồn truy ngược. Attempt invalid giữ riêng raw và exit code; không tính mẫu smoke vào chiến dịch.
 - Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis -p test*.py -v` · exit 0.
 
+## Bàn giao D07-TDN
+
+- ADMIN trực tiếp thực hiện. Tích hợp API/error/Quote, CI và G2 trên main. Tag feature-freeze gắn đúng commit được nghiệm thu sau khi đủ bằng chứng; không thêm tính năng ngoài D7.
+
+
 
 
 
@@ -3005,6 +3010,29 @@ cd services/catalog &&
     "base": "b0f7b14bd1f8ed2d2f0120684971094bdcd2b851",
     "files": [
       "services/order/ARCHITECTURE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "e8a28ee8ee8416a5288b1d05496380a739cd5e538175dd24:code",
+    "taskId": "e8a28ee8ee8416a5288b1d05496380a739cd5e538175dd24",
+    "member": "TDN",
+    "pccvId": "D07-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:23:10.047Z",
+    "base": "179c844b3724b0a444f132079cfba4d67b9e12eb",
+    "files": [
+      "services/order/FEATURE_FREEZE.md"
     ],
     "tests": [
       {
