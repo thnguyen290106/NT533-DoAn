@@ -1515,6 +1515,13 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Dashboard export theo service, instance và cửa sổ đã chọn. Inventory đối chiếu custom counter, timer và route template, loại health/scrape và không đưa requestId vào label.
 - Ubuntu HOST . · `python3 -m json.tool observability/dashboard.json` · exit 0.
 
+## Bàn giao D05-DHN
+
+- ADMIN trực tiếp thực hiện. CH-ID và GH-ID dùng cùng client ID, chỉ khác consistent. Ingress lab cần đúng peer và header hợp lệ; public bỏ header lab và không route /internal/bench.
+- Ubuntu HOST . · `python3 -m unittest discover -s infra/tests -v` · exit 0.
+- Kiểm tra cấu hình/runtime bằng adapter HOST · exit 0.
+
+
 
 
 
@@ -2492,6 +2499,33 @@ cd services/catalog &&
       },
       {
         "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "c82a077a068d32b6f848d380e963a4af97cd76c2b7ce1293:code",
+    "taskId": "c82a077a068d32b6f848d380e963a4af97cd76c2b7ce1293",
+    "member": "DHN",
+    "pccvId": "D05-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:49:10.705Z",
+    "base": "bb7dcb08010d5cbae95d5b6841f8fe0ff933b410",
+    "files": [
+      "infra/compose/nginx.conf",
+      "infra/routing.py",
+      "infra/tests/test_routing.py",
+      "infra/compose/lab.conf.tpl",
+      "infra/tests/lab_smoke.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
         "exitCode": 0
       },
       {
