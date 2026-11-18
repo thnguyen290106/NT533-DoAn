@@ -1447,6 +1447,12 @@ cd services/catalog &&
 - Ubuntu HOST . · `python3 -m unittest discover -s infra/tests -v` · exit 0.
 - Kiểm tra cấu hình/runtime bằng adapter HOST · exit 0.
 
+## Bàn giao D05-HXN
+
+- ADMIN trực tiếp thực hiện. Runner trên LOADGEN kiểm trace/checksum, target lab, tool và dung lượng, dùng index theo phase. Lưu manifest với commit, digest, seed và config/protocol hash; giữ nguyên stdout/stderr, exit code, raw và lý do invalid.
+- Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis -p test*.py -v` · exit 0.
+
+
 
 
 
@@ -2429,6 +2435,40 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "c5ebfaa9ec5eddb107f4d213df3def27ff1c3e57123af3d2:code",
+    "taskId": "c5ebfaa9ec5eddb107f4d213df3def27ff1c3e57123af3d2",
+    "member": "HXN",
+    "pccvId": "D05-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:51:07.076Z",
+    "base": "c8a94fad90bdc4b1503465f8f06b9324262a41bb",
+    "files": [
+      "analysis/run.py",
+      "analysis/tests/test_run.py",
+      "experiments/manifest.schema.json",
+      "load-tests/workload.js"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "k6",
         "exitCode": 0
       }
     ],
