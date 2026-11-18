@@ -1547,6 +1547,12 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. A3 giữ một IP NAT với uniform và hot-ID. A4 có năm keyset 1000 ID khác nhau, snapshot tuần tự 10 request/s, xác nhận generation, coverage và ổn định giữa hai sweep. Số đo đầy đủ thuộc chiến dịch sau.
 - Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis -p test*.py -v` · exit 0.
 
+## Bàn giao D06-DMN
+
+- ADMIN trực tiếp thực hiện. Fixture độc lập kiểm phân phối đều/lệch/toàn zero, percentile n=0/1, remap 1/4=25% và trọng số 80/100=80%; không đồng nhất dữ liệu thiếu với 0.
+- Ubuntu HOST . · `python3 -m unittest discover -s services/catalog/analysis-tests -v` · exit 0.
+
+
 
 
 
@@ -2621,6 +2627,33 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "ce3786dbe1ef5b7c948cd6ad27cc26cd62e27fa5ffc676ad:code",
+    "taskId": "ce3786dbe1ef5b7c948cd6ad27cc26cd62e27fa5ffc676ad",
+    "member": "DMN",
+    "pccvId": "D06-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:05:03.821Z",
+    "base": "9289aa4fecbb1d9d6a156e880acce26ec88bc01d",
+    "files": [
+      "services/catalog/analysis-tests/test_metrics.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
