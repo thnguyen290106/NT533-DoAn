@@ -5,9 +5,11 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -30,6 +33,7 @@ class OrderHttpTest {
     private record Call(String method, String path, String requestId, String callId) {}
 
     private static final List<Call> CALLS = Collections.synchronizedList(new ArrayList<>());
+    private static final java.util.concurrent.ExecutorService UPSTREAM_THREADS = Executors.newVirtualThreadPerTaskExecutor();
     private static final HttpServer UPSTREAM = upstream();
     @Autowired private MockMvc mvc;
 
@@ -43,6 +47,7 @@ class OrderHttpTest {
     @AfterAll
     static void closeServer() {
         UPSTREAM.stop(0);
+        UPSTREAM_THREADS.shutdownNow();
     }
 
     @BeforeEach
@@ -105,6 +110,23 @@ class OrderHttpTest {
                 new Call("GET", "/api/inventory/P004", RID, RID + "-inventory"));
     }
 
+    @Test
+    void downstreamHeadersWithoutBodyTimeOutAndStopTheChain() {
+        assertTimeout(Duration.ofMillis(2400), () ->
+                mvc.perform(input("{\"productId\":\"P005\",\"quantity\":1}"))
+                        .andExpect(status().isGatewayTimeout())
+                        .andExpect(jsonPath("$.error.code").value("DOWNSTREAM_TIMEOUT")));
+        assertThat(CALLS).containsExactly(new Call("GET", "/api/catalog/products/P005", RID, RID + "-catalog"));
+    }
+
+    @Test
+    void upstreamServerErrorIsNotAnOrderSuccess() throws Exception {
+        mvc.perform(input("{\"productId\":\"P006\",\"quantity\":1}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("DOWNSTREAM_UNAVAILABLE"));
+        assertThat(CALLS).containsExactly(new Call("GET", "/api/catalog/products/P006", RID, RID + "-catalog"));
+    }
+
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder input(String body) {
         return post("/api/orders/quote").header("X-Request-ID", RID)
                 .contentType(MediaType.APPLICATION_JSON).content(body);
@@ -113,6 +135,7 @@ class OrderHttpTest {
     private static HttpServer upstream() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.setExecutor(UPSTREAM_THREADS);
             server.createContext("/", OrderHttpTest::respond);
             server.start();
             return server;
@@ -137,7 +160,15 @@ class OrderHttpTest {
         byte[] bytes = ("{" + body + ",\"requestId\":\"" + responseId + "\"}").getBytes(StandardCharsets.UTF_8);
         try (request) {
             request.getResponseHeaders().set("Content-Type", "application/json");
-            request.sendResponseHeaders(id.equals("P999") ? 404 : 200, bytes.length);
+            request.sendResponseHeaders(id.equals("P999") ? 404 : id.equals("P006") ? 503 : 200, bytes.length);
+            if (id.equals("P005")) {
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
             request.getResponseBody().write(bytes);
         }
     }
