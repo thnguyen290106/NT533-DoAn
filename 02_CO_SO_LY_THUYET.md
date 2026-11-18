@@ -1556,6 +1556,12 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Chương kiến trúc mô tả quyền sở hữu Catalog/Inventory/Order, chuỗi Quote tuần tự, ranh giới 502/503/504 và phạm vi A1/A2/A4. Review fault ghi rõ I3, readiness, restore và điểm lỗi chung HOST/NGINX.
 
+## Bàn giao D07-DMN
+
+- ADMIN trực tiếp thực hiện. Baseline so từng byte fixture của ba JAR trong cụm và của C1 độc lập. Ghi image ID thực tế của từng replica; xác nhận cả ba image trả cùng SHA-256 của 1000 vòng (smoke) trong container lab độc lập.
+- Ubuntu HOST . · `python3 -m py_compile services/catalog/baseline.py` · exit 0.
+
+
 
 
 
@@ -1578,6 +1584,33 @@ cd services/catalog &&
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "08b03fe4b201e38ad777cd56b1220617b5304068f5e46154:code",
+    "taskId": "08b03fe4b201e38ad777cd56b1220617b5304068f5e46154",
+    "member": "DMN",
+    "pccvId": "D07-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:13:25.949Z",
+    "base": "8f3f781c1f6bc2d8aadf4746bd591839735216bd",
+    "files": [
+      "services/catalog/baseline.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "0a9f823dc492ea3b9b440730c914c0ac0dc3663af0f6dc88:code",
     "taskId": "0a9f823dc492ea3b9b440730c914c0ac0dc3663af0f6dc88",
