@@ -1717,12 +1717,204 @@ Order chuyển request ID qua Catalog rồi Inventory, kiểm trường body và
     "member": "DMN",
     "pccvId": "D02-DMN",
     "state": "VERIFIED_PENDING_MERGE",
-    "recordedAt": "2026-11-18T04:59:54.950Z",
+    "recordedAt": "2026-11-18T04:31:48.309Z",
     "base": "856ebb0e017acc008d3fe016f6bca30ae846fd63",
     "files": [
-      "services/catalog/mvnw"
+      "services/catalog/.gitignore",
+      "services/catalog/.mvn/wrapper/maven-wrapper.properties",
+      "services/catalog/mvnw",
+      "services/catalog/mvnw.cmd",
+      "services/catalog/pom.xml",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogApplication.java",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogController.java",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogException.java",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogExceptionHandler.java",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogFixtureStore.java",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/Product.java",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/RequestMetadata.java",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/RequestMetadataFilter.java",
+      "services/catalog/src/main/resources/application.properties",
+      "services/catalog/src/main/resources/catalog-products.json",
+      "services/catalog/src/test/java/vn/edu/uit/nt533/catalog/CatalogFixtureStoreTest.java",
+      "services/catalog/src/test/java/vn/edu/uit/nt533/catalog/CatalogHttpTest.java"
     ],
     "tests": [
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "rg",
+        "exitCode": 127
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 1
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 1
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 1
+      },
+      {
+        "program": "bash",
+        "exitCode": 126
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 128
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
       {
         "program": "mvn",
         "exitCode": 0
