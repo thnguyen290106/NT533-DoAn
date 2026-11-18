@@ -183,6 +183,12 @@ cd services/catalog &&
 - Ubuntu HOST . · `python3 infra/fault.py --help` · exit 0.
 - Kiểm tra cấu hình/runtime bằng adapter HOST · exit 0.
 
+## Bàn giao D06-HXN
+
+- ADMIN trực tiếp thực hiện. A3 giữ một IP NAT với uniform và hot-ID. A4 có năm keyset 1000 ID khác nhau, snapshot tuần tự 10 request/s, xác nhận generation, coverage và ổn định giữa hai sweep. Số đo đầy đủ thuộc chiến dịch sau.
+- Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis -p test*.py -v` · exit 0.
+
+
 
 
 
@@ -2072,6 +2078,35 @@ cd services/catalog &&
       {
         "program": "python3",
         "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "f897a6dcb47efc0d8f83ef8edfa3498e94094c4d8fb372d4:code",
+    "taskId": "f897a6dcb47efc0d8f83ef8edfa3498e94094c4d8fb372d4",
+    "member": "HXN",
+    "pccvId": "D06-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:02:08.978Z",
+    "base": "ae5470113f055c38b32e701db41e62ae26988be2",
+    "files": [
+      "analysis/trace.py",
+      "analysis/mapping.py",
+      "analysis/tests/test_mapping.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
       },
       {
         "program": "python3",
