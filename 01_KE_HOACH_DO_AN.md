@@ -1408,6 +1408,11 @@ cd services/catalog &&
 - ADMIN thực hiện D3. Parser Python stdlib đọc `requests.jsonl`, k6 JSONL và log NGINX JSONL tùy chọn. Tách lỗi HTTP, transport và contract, giữ instance zero-count, percentile nearest-rank đơn vị ms và tách riêng k6 duration. Fixture kiểm tra lỗi trùng ID và unknown instance. Cohort theo manifest và aggregate theo block thuộc lượt sau.
 - `python3 -m unittest discover -s analysis -p test*.py -v` trên LOADGEN, exit 0.
 
+## Bàn giao D04-DMN
+
+- ADMIN trực tiếp thực hiện. Profile CPU chỉ có trong Spring lab. SHA-256 chạy đúng số vòng cấu hình, bắt đầu bằng NT533-v1. Kiểm thử checksum chuẩn, cấm điều khiển vòng lặp từ request và xác nhận route tắt ngoài lab. N mặc định 1000 dùng để smoke, N chính thức chốt ở pilot.
+
+
 
 
 
@@ -2435,6 +2440,31 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "de613e7941c17fe4c90d71eea9ce6909d785d3b14e6c4cd5:code",
+    "taskId": "de613e7941c17fe4c90d71eea9ce6909d785d3b14e6c4cd5",
+    "member": "DMN",
+    "pccvId": "D04-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:24:06.606Z",
+    "base": "cc1cb9f1e6fd7b3b4b1353f8aba091376f4b63c5",
+    "files": [
+      "services/catalog/src/test/java/vn/edu/uit/nt533/catalog/CatalogHttpTest.java",
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogBenchController.java",
+      "services/catalog/src/test/java/vn/edu/uit/nt533/catalog/CatalogBenchTest.java"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
