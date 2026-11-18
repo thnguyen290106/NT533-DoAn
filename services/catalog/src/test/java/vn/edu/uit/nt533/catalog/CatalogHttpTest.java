@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -70,6 +71,12 @@ class CatalogHttpTest {
     @ValueSource(strings = {"p001", "P01", "P0001", "P0x1", "P００１", "P001 "})
     void rejectsIdOutsideTheContract(String id) throws Exception {
         expectError(get(PRODUCTS + "/{id}", id), 400, "INVALID_INPUT", "Invalid request");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/P001;foo=bar", "/P001;", "/P999;foo=bar", "/P001%3Bfoo=bar", ";foo=bar/P001"})
+    void rejectsMatrixParametersInDetailPath(String suffix) throws Exception {
+        expectError(get(URI.create(PRODUCTS + suffix)), 400, "INVALID_INPUT", "Invalid request");
     }
 
     @Test

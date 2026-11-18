@@ -28,7 +28,8 @@ final class CatalogController {
     @GetMapping("/{id}")
     ProductDetail detail(@PathVariable String id, HttpServletRequest request) {
         validateQuery(request);
-        if (!Product.hasValidId(id)) {
+        // Spring removes matrix parameters from the bound ID but preserves them in the request URI.
+        if (request.getRequestURI().indexOf(';', request.getContextPath().length()) >= 0 || !Product.hasValidId(id)) {
             throw invalidInput();
         }
         Product product = store.find(id)
