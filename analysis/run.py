@@ -26,12 +26,12 @@ def digest(file):
         return file_digest(stream, 'sha256').hexdigest()
 
 
-def validate_target(url):
+def validate_target(url, port=8081):
     parsed = urlsplit(url)
     address = IPv4Address(parsed.hostname or "")
     if (parsed.scheme != "http" or not address.is_private or address.is_loopback
-            or parsed.netloc != f"{address}:8081" or parsed.path or parsed.query or parsed.fragment):
-        raise ValueError("base_url must be the private lab listener on port 8081")
+            or parsed.netloc != f"{address}:{port}" or parsed.path or parsed.query or parsed.fragment):
+        raise ValueError(f"base_url must be a trusted private IPv4 listener on port {port}")
 
 
 def check_trace(file):
@@ -81,7 +81,10 @@ def save_json(path, data):
 
 
 def preflight(plan, trace, facts, directory):
-    validate_target(plan['base_url'])
+    public = plan.get('public_dry_run') is True
+    if public and plan.get('dry_run') is not True:
+        raise ValueError('public ingress is only for the bounded Quote dry run')
+    validate_target(plan['base_url'], 8080 if public else 8081)
     if not all(re.fullmatch(r'[0-9a-f]{64}', facts[key]) for key in ('config_sha256', 'protocol_sha256')):
         raise ValueError('missing configuration/protocol SHA-256')
     if not re.fullmatch(r'[0-9a-f]{40}', facts['commit']) or not facts['image_digests'] or not all(
@@ -94,7 +97,12 @@ def preflight(plan, trace, facts, directory):
         raise ValueError('insufficient raw storage')
     if plan.get('trace_sha256') != digest(trace):
         raise ValueError('trace checksum changed')
-    return check_trace(trace)
+    rows = check_trace(trace)
+    if public:
+        with trace.open(encoding='utf-8', newline='') as stream:
+            if rows > 12 or any(r['profile'] != 'quote' for r in csv.DictReader(stream)):
+                raise ValueError('public dry run accepts at most 12 Quote samples')
+    return rows
 
 
 def execute(plan, trace, facts, dest):
@@ -105,7 +113,7 @@ def execute(plan, trace, facts, dest):
     shutil.copyfile(trace, local_trace)
     manifest_path = dest / 'manifest.json'
     manifest = plan | facts | {'schema_version': 1, 'run_id': dest.name, 'scenarios': scenarios,
-                              'offsets': offsets, 'started_utc': datetime.now(timezone.utc).isoformat(), 'status': 'running'}
+                              'offsets': offsets, 'started_utc': datetime.now(timezone.utc).isoformat().replace('+00:00','Z'), 'status': 'running'}
     save_json(manifest_path, manifest)
     started = time.monotonic()
     command = ['k6', 'run', '--quiet', '--log-format', 'raw', '--out', 'json=' + str(dest.resolve() / 'k6-raw.json'),
@@ -124,6 +132,8 @@ def execute(plan, trace, facts, dest):
         rows = samples((dest / 'stderr.txt').read_text(encoding='utf-8'))
         indices = {row['request_index'] for row in rows}
         valid = code == 0 and len(rows) == count and indices == set(range(count)) and (dest / 'k6-raw.json').is_file()
+        if plan.get('dry_run') is True:
+            valid = valid and all(row.get('contract_ok') for row in rows)
         with (dest / 'requests.jsonl').open('w', encoding='utf-8') as output:
             for row in sorted(rows, key=lambda row: row['request_index']):
                 print(json.dumps(row), file=output)

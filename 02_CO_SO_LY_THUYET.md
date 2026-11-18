@@ -1572,6 +1572,12 @@ cd services/catalog &&
 - Ubuntu HOST . · `python3 -m unittest discover -s infra/tests -v` · exit 0.
 - Kiểm tra cấu hình/runtime bằng adapter HOST · exit 0.
 
+## Bàn giao D07-HXN
+
+- ADMIN trực tiếp thực hiện. Dry-run Quote trên LOADGEN, raw→summary→PNG có checksum và nguồn truy ngược. Attempt invalid giữ riêng raw và exit code; không tính mẫu smoke vào chiến dịch.
+- Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis -p test*.py -v` · exit 0.
+
+
 
 
 
@@ -1752,6 +1758,41 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "4a1e67af68c5c564a6ad23a3c53b41f53143849e8bcc7ff4:code",
+    "taskId": "4a1e67af68c5c564a6ad23a3c53b41f53143849e8bcc7ff4",
+    "member": "HXN",
+    "pccvId": "D07-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:19:20.406Z",
+    "base": "5dfcfd2aed187c0e4b5f3c547e6a7d678fc4ee0e",
+    "files": [
+      "analysis/run.py",
+      "load-tests/workload.js",
+      "analysis/chart.py",
+      "analysis/requirements.txt",
+      "experiments/DRY_RUN.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "k6",
         "exitCode": 0
       }
     ],
