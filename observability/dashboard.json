@@ -116,8 +116,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(service,instance) (increase(http_server_requests_seconds_count{uri=~\"/api/.*|/internal/bench\"}[$__range]))",
-          "legendFormat": "{{service}}/{{instance}}"
+          "expr": "sum by(service,instance,profile) (increase(nt533_requests_total[$__range]))",
+          "legendFormat": "{{service}}/{{instance}} {{profile}}"
         }
       ]
     }
