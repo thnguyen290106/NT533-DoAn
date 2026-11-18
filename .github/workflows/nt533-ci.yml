@@ -50,8 +50,8 @@ jobs:
           count=0
           for service in catalog inventory order; do
             if [ -f "services/$service/pom.xml" ]; then
-              test -f "services/$service/mvnw"
-              (cd "services/$service" && bash mvnw -B verify -DfailIfNoTests=true)
+              test -x "services/$service/mvnw"
+              (cd "services/$service" && ./mvnw -B -ntp verify -DfailIfNoTests=true)
               count=$((count+1))
             fi
           done
