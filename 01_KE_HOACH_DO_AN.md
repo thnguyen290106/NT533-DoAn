@@ -1412,6 +1412,12 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Profile CPU chỉ có trong Spring lab. SHA-256 chạy đúng số vòng cấu hình, bắt đầu bằng NT533-v1. Kiểm thử checksum chuẩn, cấm điều khiển vòng lặp từ request và xác nhận route tắt ngoài lab. N mặc định 1000 dùng để smoke, N chính thức chốt ở pilot.
 
+## Bàn giao D04-TTN
+
+- ADMIN trực tiếp thực hiện. Inventory lab xử lý fast 20 ms, slow 200 ms và mapping không delay; fault I3 thêm đúng 300 ms. Dashboard có CPU, JVM RAM, GC và bộ đếm theo service/instance. Tỷ lệ lớp delay do trace quyết định.
+- Ubuntu HOST . · `python3 -m json.tool observability/dashboard.json` · exit 0.
+
+
 
 
 
@@ -1420,6 +1426,35 @@ cd services/catalog &&
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "186f6979f031df50f7fe4c6307f5edec99c31963f4f91cd4:code",
+    "taskId": "186f6979f031df50f7fe4c6307f5edec99c31963f4f91cd4",
+    "member": "TTN",
+    "pccvId": "D04-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:27:40.175Z",
+    "base": "2df0d6143a1774a2f992155aa93363a869ed53c5",
+    "files": [
+      "observability/dashboard.json",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryBenchController.java",
+      "services/inventory/src/test/java/vn/edu/uit/nt533/inventory/InventoryBenchTest.java"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "260ff6fb8b480986728d3b8b82043de269238b695ee9daf8:code",
     "taskId": "260ff6fb8b480986728d3b8b82043de269238b695ee9daf8",
