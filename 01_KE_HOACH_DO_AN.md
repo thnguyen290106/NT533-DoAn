@@ -1478,6 +1478,11 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Fixture độc lập kiểm phân phối đều/lệch/toàn zero, percentile n=0/1, remap 1/4=25% và trọng số 80/100=80%; không đồng nhất dữ liệu thiếu với 0.
 - Ubuntu HOST . · `python3 -m unittest discover -s services/catalog/analysis-tests -v` · exit 0.
 
+## Bàn giao D06-TDN
+
+- ADMIN trực tiếp thực hiện. Chương kiến trúc mô tả quyền sở hữu Catalog/Inventory/Order, chuỗi Quote tuần tự, ranh giới 502/503/504 và phạm vi A1/A2/A4. Review fault ghi rõ I3, readiness, restore và điểm lỗi chung HOST/NGINX.
+
+
 
 
 
@@ -2851,6 +2856,29 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "e05277ac8a024131eff87bf1f9b4b19fb3a2cd8dd64bc41c:code",
+    "taskId": "e05277ac8a024131eff87bf1f9b4b19fb3a2cd8dd64bc41c",
+    "member": "TDN",
+    "pccvId": "D06-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:08:03.348Z",
+    "base": "b0f7b14bd1f8ed2d2f0120684971094bdcd2b851",
+    "files": [
+      "services/order/ARCHITECTURE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
