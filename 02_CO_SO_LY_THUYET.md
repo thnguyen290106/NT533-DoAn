@@ -1535,6 +1535,14 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Tách phép đếm completion-window và cohort bắt đầu đo, so drain và observation thiếu. Audit UTC và monotonic timestamp của sự kiện fault, giữ reset/mất scrape là dữ liệu thiếu thay vì 0.
 - Ubuntu HOST . · `python3 -m unittest discover -s observability/tests -v` · exit 0.
 
+## Bàn giao D06-DHN
+
+- ADMIN trực tiếp thực hiện. Real-IP chỉ tin peer /32, kiểm dải IP mô phỏng theo Q04 và log peer/effective IP. I4 tách profile mapping, giữ image/quota Inventory. Fault chỉ định đúng I3 theo nhãn Compose, start lại trong finally, xác minh readiness và lưu UTC/monotonic.
+- Ubuntu HOST . · `python3 -m unittest discover -s infra/tests -v` · exit 0.
+- Ubuntu HOST . · `python3 infra/fault.py --help` · exit 0.
+- Kiểm tra cấu hình/runtime bằng adapter HOST · exit 0.
+
+
 
 
 
@@ -2845,6 +2853,39 @@ cd services/catalog &&
       },
       {
         "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "deb01fe457f32de21a1ea663d7d5568b275bd2941eea18a1:code",
+    "taskId": "deb01fe457f32de21a1ea663d7d5568b275bd2941eea18a1",
+    "member": "DHN",
+    "pccvId": "D06-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:00:14.863Z",
+    "base": "8cf4c47d7911bde0b12331ae600f56e462bf1fc7",
+    "files": [
+      "infra/compose/compose.yaml",
+      "infra/compose/lab.conf.tpl",
+      "infra/compose/nginx.conf",
+      "infra/routing.py",
+      "infra/tests/test_routing.py",
+      "infra/compose/mapping.yaml",
+      "infra/fault.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
         "exitCode": 0
       }
     ],

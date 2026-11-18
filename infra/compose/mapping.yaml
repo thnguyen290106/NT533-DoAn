@@ -1,0 +1,9 @@
+services:
+  inventory-4:
+    extends:
+      file: compose.yaml
+      service: inventory-1
+    profiles: [mapping]
+    environment:
+      INSTANCE_ID: I4
+      SPRING_PROFILES_ACTIVE: lab
