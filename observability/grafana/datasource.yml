@@ -1,0 +1,9 @@
+apiVersion: 1
+datasources:
+  - name: NT533 Prometheus
+    uid: nt533-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
