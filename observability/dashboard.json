@@ -1,0 +1,125 @@
+{
+  "uid": "nt533-app",
+  "title": "NT533 application metrics",
+  "schemaVersion": 39,
+  "timezone": "utc",
+  "editable": true,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU process fraction",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "nt533-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "process_cpu_usage",
+          "legendFormat": "{{service}}/{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "JVM memory",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "nt533-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(service,instance) (jvm_memory_used_bytes)",
+          "legendFormat": "{{service}}/{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "GC pause",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "nt533-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(service,instance) (increase(jvm_gc_pause_seconds_sum[$__range]))",
+          "legendFormat": "{{service}}/{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Business request count",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "nt533-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(service,instance) (increase(http_server_requests_seconds_count{uri=~\"/api/.*|/internal/bench\"}[$__range]))",
+          "legendFormat": "{{service}}/{{instance}}"
+        }
+      ]
+    }
+  ]
+}
