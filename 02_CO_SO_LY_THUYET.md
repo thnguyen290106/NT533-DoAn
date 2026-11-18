@@ -1581,6 +1581,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Tích hợp API/error/Quote, CI và G2 trên main. Tag feature-freeze gắn đúng commit được nghiệm thu sau khi đủ bằng chứng; không thêm tính năng ngoài D7.
 
+## Bàn giao D08-DHN
+
+- ADMIN trực tiếp thực hiện. Kiểm kê thật hai Ubuntu, khóa digest cấu hình NGINX đang chạy, đối chiếu quota/connection và trace 1.000 prefix /24 cùng NAT một IP. Hồ sơ infra/D08_PREFLIGHT.md ghi nguyên điều kiện còn thiếu trước pilot, không chứng nhận G3.
+
+
 
 
 
@@ -1608,6 +1613,25 @@ cd services/catalog &&
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "06e5c475aaaefe7536e04d46e46ae43ea47fbcc755776405:code",
+    "taskId": "06e5c475aaaefe7536e04d46e46ae43ea47fbcc755776405",
+    "member": "DHN",
+    "pccvId": "D08-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T14:20:21.057Z",
+    "base": "f3c1ae21a14a62d491ed16a7ce7dff0da8bebb71",
+    "files": [
+      "infra/D08_PREFLIGHT.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "08b03fe4b201e38ad777cd56b1220617b5304068f5e46154:code",
     "taskId": "08b03fe4b201e38ad777cd56b1220617b5304068f5e46154",
