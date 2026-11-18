@@ -207,6 +207,13 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Audit một cohort Quote gồm 200, Catalog 404, input 400 theo request/call ID. Sau deploy so đúng 3 request client với 6 app/gateway records, delta counter/timer từng service và 3 downstream observations.
 - Ubuntu HOST . · `python3 -m py_compile observability/verify_live.py` · exit 0.
 
+## Bàn giao D07-DHN
+
+- ADMIN trực tiếp thực hiện. G2 smoke năm biến thể trên cùng image, kiểm ID/trust, membership và khôi phục mapping 3→4→3. Kiểm kê dọn đúng container/network thuộc lượt thử; bảo toàn cụm đang chạy.
+- Ubuntu HOST . · `python3 -m unittest discover -s infra/tests -v` · exit 0.
+- Kiểm tra cấu hình/runtime bằng adapter HOST · exit 0.
+
+
 
 
 
@@ -306,6 +313,30 @@ cd services/catalog &&
       },
       {
         "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "18f2f7b93645676d63e915eca69ae1b296e34e9b990157e5:code",
+    "taskId": "18f2f7b93645676d63e915eca69ae1b296e34e9b990157e5",
+    "member": "DHN",
+    "pccvId": "D07-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T13:17:17.592Z",
+    "base": "619191dd6907956f25bcdd38e2ff7712300c1b20",
+    "files": [
+      "infra/tests/lab_smoke.py",
+      "infra/RELEASE_SMOKE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
         "exitCode": 0
       }
     ],
