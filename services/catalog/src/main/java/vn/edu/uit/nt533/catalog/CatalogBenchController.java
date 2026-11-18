@@ -2,6 +2,7 @@ package vn.edu.uit.nt533.catalog;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
+import java.security.DigestException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -28,17 +29,20 @@ final class CatalogBenchController {
 
     @GetMapping("/internal/bench")
     Work bench(@RequestParam MultiValueMap<String, String> query, HttpServletRequest request)
-            throws NoSuchAlgorithmException {
+            throws NoSuchAlgorithmException, DigestException {
         if (query.size() != 1 || !List.of("cpu-fixed").equals(query.get("profile"))) {
             throw new CatalogException(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "Invalid benchmark profile or query");
         }
         MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-        byte[] value = "NT533-v1".getBytes(StandardCharsets.UTF_8);
+        byte[] input = "NT533-v1".getBytes(StandardCharsets.UTF_8);
+        byte[] checksum = new byte[32];
         for (int round = 0; round < iterations; round++) {
-            value = sha256.digest(value);
+            sha256.update(input);
+            sha256.digest(checksum, 0, checksum.length);
+            input = checksum;
         }
         RequestMetadata metadata = RequestMetadata.from(request);
-        return new Work("cpu-fixed", iterations, HexFormat.of().formatHex(value), metadata.requestId(), metadata.instanceId());
+        return new Work("cpu-fixed", iterations, HexFormat.of().formatHex(checksum), metadata.requestId(), metadata.instanceId());
     }
 
     record Work(String profile, int iterations, String checksum, String requestId, String instanceId) {}
