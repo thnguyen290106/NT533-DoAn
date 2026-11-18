@@ -1530,6 +1530,12 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Review ranh giới public/lab/private, port management riêng và không route benchmark từ public. Order bổ sung metrics/log có nhãn hữu hạn, giữ status downstream thực và không đưa ID vào metric.
 
+## Bàn giao D06-TTN
+
+- ADMIN trực tiếp thực hiện. Tách phép đếm completion-window và cohort bắt đầu đo, so drain và observation thiếu. Audit UTC và monotonic timestamp của sự kiện fault, giữ reset/mất scrape là dữ liệu thiếu thay vì 0.
+- Ubuntu HOST . · `python3 -m unittest discover -s observability/tests -v` · exit 0.
+
+
 
 
 
@@ -1878,6 +1884,32 @@ cd services/catalog &&
       {
         "program": "python3",
         "exitCode": 1
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "7037a610a2f182341a70c308f2f751dece4ca4793d53bbcf:code",
+    "taskId": "7037a610a2f182341a70c308f2f751dece4ca4793d53bbcf",
+    "member": "TTN",
+    "pccvId": "D06-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:58:16.157Z",
+    "base": "5f1432abb299caa079a7da89a61bbf521ef73932",
+    "files": [
+      "observability/grafana/dashboards.yml",
+      "observability/grafana/datasource.yml",
+      "observability/tests/test_window.py",
+      "observability/window.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
       },
       {
         "program": "python3",
