@@ -80,6 +80,17 @@ class CatalogHttpTest {
     }
 
     @Test
+    void rejectsMatrixParametersInListPath() throws Exception {
+        expectError(get(URI.create(PRODUCTS + ";view=compact")), 400, "INVALID_INPUT", "Invalid request");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {PRODUCTS, PRODUCTS + "/P001"})
+    void rejectsUnacceptableResponseMediaType(String path) throws Exception {
+        expectError(get(path).accept(MediaType.TEXT_PLAIN), 406, "NOT_ACCEPTABLE", "Not acceptable");
+    }
+
+    @Test
     void distinguishesAbsentFixtureIdFromInvalidId() throws Exception {
         expectError(get(PRODUCTS + "/P999"), 404, "PRODUCT_NOT_FOUND", "Product not found");
     }

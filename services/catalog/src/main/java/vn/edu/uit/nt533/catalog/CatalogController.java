@@ -20,16 +20,15 @@ final class CatalogController {
 
     @GetMapping
     ProductList list(HttpServletRequest request) {
-        validateQuery(request);
+        validateRequest(request);
         RequestMetadata metadata = RequestMetadata.from(request);
         return new ProductList(store.products(), metadata.requestId(), metadata.instanceId());
     }
 
     @GetMapping("/{id}")
     ProductDetail detail(@PathVariable String id, HttpServletRequest request) {
-        validateQuery(request);
-        // Spring removes matrix parameters from the bound ID but preserves them in the request URI.
-        if (request.getRequestURI().indexOf(';', request.getContextPath().length()) >= 0 || !Product.hasValidId(id)) {
+        validateRequest(request);
+        if (!Product.hasValidId(id)) {
             throw invalidInput();
         }
         Product product = store.find(id)
@@ -39,9 +38,11 @@ final class CatalogController {
         return new ProductDetail(product, metadata.requestId(), metadata.instanceId());
     }
 
-    private static void validateQuery(HttpServletRequest request) {
+    private static void validateRequest(HttpServletRequest request) {
         String query = request.getQueryString();
-        if (query != null && !query.isEmpty()) {
+        // Spring ignores matrix parameters when matching paths but keeps them in the request URI.
+        boolean hasMatrixParameters = request.getRequestURI().indexOf(';', request.getContextPath().length()) >= 0;
+        if (hasMatrixParameters || (query != null && !query.isEmpty())) {
             throw invalidInput();
         }
     }

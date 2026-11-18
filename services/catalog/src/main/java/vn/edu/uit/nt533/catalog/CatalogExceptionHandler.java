@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -32,6 +33,11 @@ final class CatalogExceptionHandler {
                 .headers(error.getHeaders())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body("METHOD_NOT_ALLOWED", "Method not allowed", request));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    ResponseEntity<ErrorResponse> notAcceptable(HttpServletRequest request) {
+        return response(HttpStatus.NOT_ACCEPTABLE, "NOT_ACCEPTABLE", "Not acceptable", request);
     }
 
     @ExceptionHandler(Exception.class)

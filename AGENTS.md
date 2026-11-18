@@ -292,7 +292,7 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
     "member": "DMN",
     "pccvId": "D02-DMN",
     "state": "VERIFIED_PENDING_MERGE",
-    "recordedAt": "2026-11-18T04:22:41.311Z",
+    "recordedAt": "2026-11-18T04:31:48.309Z",
     "base": "856ebb0e017acc008d3fe016f6bca30ae846fd63",
     "files": [
       "services/catalog/.gitignore",
@@ -428,6 +428,62 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
       },
       {
         "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 1
+      },
+      {
+        "program": "bash",
+        "exitCode": 126
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 128
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
+        "exitCode": 0
+      },
+      {
+        "program": "bash",
         "exitCode": 0
       },
       {
