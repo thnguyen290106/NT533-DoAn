@@ -1,0 +1,85 @@
+name: nt533
+services:
+  catalog:
+    build:
+      context: ../..
+      dockerfile: infra/Dockerfile
+      args:
+        SERVICE: catalog
+    environment:
+      INSTANCE_ID: C1
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx256m -XX:+UseG1GC
+    cpus: 0.5
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [backend]
+    healthcheck: &java-health
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/actuator/health/readiness"]
+      interval: 5s
+      timeout: 2s
+      start_period: 60s
+      retries: 3
+  inventory:
+    build:
+      context: ../..
+      dockerfile: infra/Dockerfile
+      args:
+        SERVICE: inventory
+    environment:
+      INSTANCE_ID: I1
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx256m -XX:+UseG1GC
+    cpus: 0.5
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [backend]
+    healthcheck: *java-health
+  order:
+    build:
+      context: ../..
+      dockerfile: infra/Dockerfile
+      args:
+        SERVICE: order
+    environment:
+      INSTANCE_ID: O1
+      CATALOG_URL: http://catalog:8080
+      INVENTORY_URL: http://inventory:8080
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx256m -XX:+UseG1GC
+    cpus: 0.5
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [backend]
+    healthcheck: *java-health
+  nginx:
+    image: nginx:1.28.3-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
+    user: "101:101"
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - target: 8080
+        published: "8080"
+        host_ip: "${NT533_BIND_IP-127.0.0.1}"
+    cpus: 1
+    mem_limit: 256m
+    restart: unless-stopped
+    networks: [edge, backend]
+    depends_on:
+      catalog:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+      order:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+networks:
+  edge:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true

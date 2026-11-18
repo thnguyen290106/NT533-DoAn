@@ -1,4 +1,4 @@
-> **Vận hành v2 — chưa chạy D01:** ADMIN chọn D1–D14; năm worker thực hiện ngày được chọn, không tự chuyển ngày. Mọi task ban đầu chưa thực hiện. Code/test chạy trong workspace riêng trên Ubuntu HOST/LOADGEN; server tự Git/PR/merge theo CI và review AI, không chờ duyệt PR thông thường. Không áp ngưỡng CPU/RAM/disk để chặn bắt đầu; lỗi OOM/hết disk hoặc test thất bại vẫn phải báo thật. Các mục Windows/WSL, quyền duyệt và ngưỡng mở lab của mô hình cũ bên dưới được thay bởi hồ sơ này và AGENTS.md; số liệu, raw, RQ/API/protocol không được giả hoặc đổi để làm đẹp kết quả.
+> **Vận hành từ D3:** ADMIN chọn ngày. App giao từng lượt theo PCCV sau khi kiểm tra GitHub có quyền ghi trên repo. Worker làm độc lập, kiểm tra HOST/LOADGEN qua broker nếu cần, bàn giao qua cả ba MD. Server chỉ giao lượt sau khi commit trước đã qua kiểm thử, CI và merge. Dữ liệu benchmark và protocol phải bám đặc tả.
 
 # KẾ HOẠCH END-TO-END NT533 — 2 TUẦN / 14 NGÀY
 
@@ -1349,9 +1349,56 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
 | Thời điểm UTC | 2026-11-17T08:48:21.107Z | 2026-11-17T08:48:22.330Z |
 
 **Giới hạn tài nguyên:** HOST có RAM tổng thấp hơn cả budget thường 5888 MiB và budget I4 6400 MiB, chưa tính OS/Docker. D1 chỉ hoàn tất thiết kế và ghi nhận máy thực; cần tăng RAM hoặc có quyết định điều chỉnh đồng bộ đã được duyệt trước khi chạy đủ stack/pilot. Không giảm replica/quota riêng một thuật toán, không nhận G2/G3 đạt và không thay đổi cấu hình VM trong lượt này. Route read-only không chứng minh firewall, Real-IP, cổng dịch vụ hay khả năng chịu tải.
+
+
+## Kết quả D2 và đầu vào D3
+
+| PCCV | Hạng mục nghiệm thu | Bằng chứng |
+|---|---|---|
+| D02-DMN | Catalog list/detail, fixture, validate ID, metadata và quyền thực thi Maven Wrapper | PR #5; 47 test xanh trên HOST |
+| D02-TTN | Inventory fixture 100/3/0, mã lỗi, instance ID, Actuator readiness | 4 test xanh và container I1 healthy |
+| D02-TDN | Order quote, Catalog rồi Inventory, kiểm đầu vào, lỗi và Maven CI | 3 test xanh; quote P001×2 = 200000 VND |
+| D02-DHN | Compose 1 replica C1/I1/O1, NGINX ở cổng 8080, management ở mạng nội bộ | Build sạch trên HOST, 4 container healthy, LOADGEN truy cập qua NGINX |
+| D02-HXN | k6 smoke kiểm status, body và metadata | 24/24 kiểm tra; sửa một trường body trong bài đối chứng HTTP 200 làm exit 99 |
+
+ADMIN thực hiện tiếp quản; các commit từ Inventory đến k6 được tích hợp trong PR #6. D3 mở rộng từ stack một replica: cấu hình Actuator/scrape từng instance, triển khai ba replica, hoàn thiện contract và số call của quote, parser ban đầu. Chưa có số liệu benchmark hay bằng chứng G2/G3 từ smoke D2. [Kết quả smoke D2](experiments/d2/smoke-summary.txt).
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "260ff6fb8b480986728d3b8b82043de269238b695ee9daf8:code",
+    "taskId": "260ff6fb8b480986728d3b8b82043de269238b695ee9daf8",
+    "member": "TDN",
+    "pccvId": "D02-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.935Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "services/order/.gitignore",
+      "services/order/.mvn/wrapper/maven-wrapper.properties",
+      "services/order/mvnw",
+      "services/order/mvnw.cmd",
+      "services/order/pom.xml",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderApplication.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderController.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderException.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderExceptionHandler.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/QuoteService.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/RequestMetadata.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/RequestMetadataFilter.java",
+      "services/order/src/main/resources/application.properties",
+      "services/order/src/test/java/vn/edu/uit/nt533/order/OrderHttpTest.java",
+      ".github/workflows/nt533-ci.yml"
+    ],
+    "tests": [
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51:code",
     "taskId": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51",
@@ -1560,6 +1607,31 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "7d29538dc8656b6c8c651518540a128481e8daf2341539d0:code",
+    "taskId": "7d29538dc8656b6c8c651518540a128481e8daf2341539d0",
+    "member": "DHN",
+    "pccvId": "D02-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.946Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "infra/Dockerfile",
+      "infra/compose/compose.yaml",
+      "infra/compose/nginx.conf"
+    ],
+    "tests": [
+      {
+        "program": "docker",
+        "exitCode": 0
+      },
+      {
+        "program": "curl",
         "exitCode": 0
       }
     ],
@@ -2055,6 +2127,42 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
     "remoteJobs": []
   },
   {
+    "id": "ec63dd3891f3096ff6e9963d5332635c7fc5c5aa7e9a827a:code",
+    "taskId": "ec63dd3891f3096ff6e9963d5332635c7fc5c5aa7e9a827a",
+    "member": "TTN",
+    "pccvId": "D02-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.955Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "services/inventory/.gitignore",
+      "services/inventory/.mvn/wrapper/maven-wrapper.properties",
+      "services/inventory/mvnw",
+      "services/inventory/mvnw.cmd",
+      "services/inventory/pom.xml",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryApplication.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryController.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryException.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryExceptionHandler.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/RequestMetadata.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/RequestMetadataFilter.java",
+      "services/inventory/src/main/resources/application.properties",
+      "services/inventory/src/main/resources/inventory-stock.json",
+      "services/inventory/src/test/java/vn/edu/uit/nt533/inventory/InventoryHttpTest.java"
+    ],
+    "tests": [
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "curl",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
     "id": "ef72864aeabac39d94febc0692d94c3eb38f89c8884cde8b:code",
     "taskId": "ef72864aeabac39d94febc0692d94c3eb38f89c8884cde8b",
     "member": "DHN",
@@ -2270,6 +2378,26 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
       },
       {
         "program": "host-inventory",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "f63eff6bfa681667dc94b2533848dad5509e6c78df925c0b:code",
+    "taskId": "f63eff6bfa681667dc94b2533848dad5509e6c78df925c0b",
+    "member": "HXN",
+    "pccvId": "D02-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.959Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "load-tests/d2-smoke.js",
+      "experiments/d2/smoke-summary.txt"
+    ],
+    "tests": [
+      {
+        "program": "k6",
         "exitCode": 0
       }
     ],

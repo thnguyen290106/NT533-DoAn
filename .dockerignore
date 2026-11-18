@@ -1,0 +1,8 @@
+**
+!services/
+!services/**/
+!services/**/pom.xml
+!services/**/src/
+!services/**/src/**
+!infra/
+!infra/Dockerfile

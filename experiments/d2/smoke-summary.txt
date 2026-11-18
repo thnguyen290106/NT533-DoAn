@@ -1,0 +1,7 @@
+2026-11-18 — k6 1.0.0 trên LOADGEN, một VU/một iteration.
+HOST: một replica/service và NGINX qua cổng API của lab.
+Lượt chuẩn, exit 0: checks_total=24; checks_succeeded=24; checks_failed=0.
+Đối chứng, exit 99: checks_total=24; checks_succeeded=23; checks_failed=1.
+✓ quote status 200
+✗ quote đúng body: totalPrice đối chứng là 199999, kỳ vọng 200000.
+Không dùng kết quả smoke này để đánh giá hiệu năng.

@@ -11,7 +11,7 @@
 
 - ADMIN chọn một ngày D1–D14 và cấp quyền chạy năm task của ngày đó; chỉ ADMIN được đổi prompt/cấu hình, bắt đầu, tiếp tục hoặc dừng run.
 - TDN, DMN, TTN, DHN, HXN đăng nhập Codex của chính mình trên máy cá nhân và ghép worker. Tài khoản worker không được điều khiển task/run qua web hoặc API.
-- Chỉ bắt đầu khi đồng thời đủ năm worker/Codex v2 ready và HOST/LOADGEN đăng nhập SSH thành công từ cấu hình web hiện tại. Không bỏ qua kiểm tra xác thực, fingerprint, công cụ cần thiết hoặc CI.
+- Từ D3, bắt đầu khi worker lượt đầu có Codex và GitHub hợp lệ, cùng HOST/LOADGEN đã xác thực SSH. Các worker khác được kiểm tra khi tới lượt. Không bỏ qua kiểm tra xác thực, fingerprint, công cụ cần thiết hoặc CI.
 - Không chặn bắt đầu theo số CPU, dung lượng RAM hoặc disk VM. Nếu chạy thực tế OOM/hết disk/test lỗi thì báo đúng lỗi, không tự báo đạt.
 - Ngày đã chọn xong thì chờ ADMIN chọn ngày tiếp theo. Không tự chạy D2 sau D1.
 
@@ -29,8 +29,8 @@
 - Server quản lý Git bằng tài khoản GitHub hiện tại; thông tin thành viên/PCCV nằm trong metadata, không giả tác giả.
 - Mỗi task bắt đầu từ main mới nhất trong workspace riêng. Sửa nhỏ nhất đúng mục tiêu, chạy test thật và giữ nguyên validation/error handling.
 - Sau test, worker/server tin cậy cập nhật bằng chứng trong CẢ BA FILE MD trước commit. Chỉ cập nhật tiến độ liên quan task, giữ kết quả của mọi thành viên; không tự viết lại khối JSON do hệ thống sinh.
-- Server tự commit, push, PR; agent đang ở cùng run được tự trao đổi/review chéo. Không yêu cầu người duyệt PR thông thường.
-- Merge tuần tự, bắt buộc CI và review AI đúng HEAD. Main đổi thì hợp nhất lại, test lại và chạy lại CI/review. Không force-push, bỏ test hoặc dùng duyệt của HEAD cũ.
+- Từ D3, server tự commit, push, PR và điều phối tuần tự. Các worker bàn giao qua ba MD và làm độc lập theo phạm vi.
+- Merge tuần tự, bắt buộc kiểm tra Ubuntu và CI trên đúng HEAD. Main đổi thì hợp nhất lại, test lại và chạy lại CI. Không force-push, bỏ test hoặc dùng duyệt của HEAD cũ.
 - Conflict tiến độ được hợp nhất có cấu trúc. Conflict khác gửi Codex phụ trách tự sửa và kiểm thử tối đa ba vòng; không chọn toàn bộ ours/theirs để hết lỗi.
 - Hết ba vòng chưa đạt thì chặn task và task phụ thuộc; task độc lập khác vẫn có thể xong. Không báo DONE giả.
 - Deploy đúng SHA/image digest đã merge, kiểm tra readiness/API/smoke thật; lỗi thì rollback bản tốt trước đó và ghi kết quả. D1 chưa có dịch vụ thì không báo đã deploy ứng dụng.
@@ -70,9 +70,50 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
 | Thời điểm UTC | 2026-11-17T08:48:21.107Z | 2026-11-17T08:48:22.330Z |
 
 **Giới hạn tài nguyên:** HOST có RAM tổng thấp hơn cả budget thường 5888 MiB và budget I4 6400 MiB, chưa tính OS/Docker. D1 chỉ hoàn tất thiết kế và ghi nhận máy thực; cần tăng RAM hoặc có quyết định điều chỉnh đồng bộ đã được duyệt trước khi chạy đủ stack/pilot. Không giảm replica/quota riêng một thuật toán, không nhận G2/G3 đạt và không thay đổi cấu hình VM trong lượt này. Route read-only không chứng minh firewall, Real-IP, cổng dịch vụ hay khả năng chịu tải.
+
+
+## Bàn giao vận hành sau D2
+
+ADMIN tạm dừng năm worker và trực tiếp hoàn tất D2. PR #5 chứa Catalog, PR #6 chứa Inventory, Order, Compose và smoke. Từ D3, mỗi lượt chỉ có worker được giao; ai làm lượt kế tiếp đọc ba MD và source đã merge. Thiếu thông tin môi trường thì dùng get_lab/probe_lab trên hai Ubuntu rồi ghi dữ kiện đã xác minh. Trong từng MD, thêm đúng một mục `## Bàn giao Dxx-MEMBER` ở cuối thân, giữ nguyên mục cũ và sổ JSON do coordinator ghi. Worker đăng nhập GitHub bằng thông tin xác thực cục bộ; app đối chiếu quyền ghi collaborator trên chính repo trước khi giao lượt.
+
+D2 trên HOST đã kiểm 47 test Catalog, 4 Inventory, 3 Order và Compose từng service đều healthy. LOADGEN chạy k6 được 24/24 kiểm tra; test đối chứng trả HTTP 200 nhưng tổng tiền sai làm k6 thoát 99. [Kết quả smoke D2](experiments/d2/smoke-summary.txt).
+
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "260ff6fb8b480986728d3b8b82043de269238b695ee9daf8:code",
+    "taskId": "260ff6fb8b480986728d3b8b82043de269238b695ee9daf8",
+    "member": "TDN",
+    "pccvId": "D02-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.935Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "services/order/.gitignore",
+      "services/order/.mvn/wrapper/maven-wrapper.properties",
+      "services/order/mvnw",
+      "services/order/mvnw.cmd",
+      "services/order/pom.xml",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderApplication.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderController.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderException.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/OrderExceptionHandler.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/QuoteService.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/RequestMetadata.java",
+      "services/order/src/main/java/vn/edu/uit/nt533/order/RequestMetadataFilter.java",
+      "services/order/src/main/resources/application.properties",
+      "services/order/src/test/java/vn/edu/uit/nt533/order/OrderHttpTest.java",
+      ".github/workflows/nt533-ci.yml"
+    ],
+    "tests": [
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51:code",
     "taskId": "6ec53ea01d438a5a374b42c99112e65cd5c4b3ef64ff0c51",
@@ -281,6 +322,31 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "7d29538dc8656b6c8c651518540a128481e8daf2341539d0:code",
+    "taskId": "7d29538dc8656b6c8c651518540a128481e8daf2341539d0",
+    "member": "DHN",
+    "pccvId": "D02-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.946Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "infra/Dockerfile",
+      "infra/compose/compose.yaml",
+      "infra/compose/nginx.conf"
+    ],
+    "tests": [
+      {
+        "program": "docker",
+        "exitCode": 0
+      },
+      {
+        "program": "curl",
         "exitCode": 0
       }
     ],
@@ -776,6 +842,42 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
     "remoteJobs": []
   },
   {
+    "id": "ec63dd3891f3096ff6e9963d5332635c7fc5c5aa7e9a827a:code",
+    "taskId": "ec63dd3891f3096ff6e9963d5332635c7fc5c5aa7e9a827a",
+    "member": "TTN",
+    "pccvId": "D02-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.955Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "services/inventory/.gitignore",
+      "services/inventory/.mvn/wrapper/maven-wrapper.properties",
+      "services/inventory/mvnw",
+      "services/inventory/mvnw.cmd",
+      "services/inventory/pom.xml",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryApplication.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryController.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryException.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/InventoryExceptionHandler.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/RequestMetadata.java",
+      "services/inventory/src/main/java/vn/edu/uit/nt533/inventory/RequestMetadataFilter.java",
+      "services/inventory/src/main/resources/application.properties",
+      "services/inventory/src/main/resources/inventory-stock.json",
+      "services/inventory/src/test/java/vn/edu/uit/nt533/inventory/InventoryHttpTest.java"
+    ],
+    "tests": [
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "curl",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
     "id": "ef72864aeabac39d94febc0692d94c3eb38f89c8884cde8b:code",
     "taskId": "ef72864aeabac39d94febc0692d94c3eb38f89c8884cde8b",
     "member": "DHN",
@@ -991,6 +1093,26 @@ Theo yêu cầu ADMIN, không chạy lại bộ test hay các harness Ubuntu tro
       },
       {
         "program": "host-inventory",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "f63eff6bfa681667dc94b2533848dad5509e6c78df925c0b:code",
+    "taskId": "f63eff6bfa681667dc94b2533848dad5509e6c78df925c0b",
+    "member": "HXN",
+    "pccvId": "D02-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T04:59:54.959Z",
+    "base": "fe64bceeb078c8e4962bdb8789fe2462f29b335d",
+    "files": [
+      "load-tests/d2-smoke.js",
+      "experiments/d2/smoke-summary.txt"
+    ],
+    "tests": [
+      {
+        "program": "k6",
         "exitCode": 0
       }
     ],
