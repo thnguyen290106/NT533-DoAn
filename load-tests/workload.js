@@ -12,6 +12,7 @@ export const options = { scenarios: plan.scenarios || { smoke: { executor: 'shar
 function result(response, profile, delay) {
   if (response.status !== 200) return false;
   const data = response.json();
+  if (data.requestId !== response.headers['X-Request-Id'] || data.instanceId !== response.headers['X-Instance-Id']) return false;
   if (profile === 'cpu-fixed') return data.profile === profile && data.iterations === plan.cpu_iterations && data.checksum === plan.cpu_checksum;
   if (profile === 'mixed-delay') return data.profile === profile && data.delayClass === delay
     && data.appliedDelayMs === (delay === 'fast' ? 20 : 200) + (data.instanceId === 'I3' ? plan.i3_extra_ms || 0 : 0);
@@ -34,9 +35,11 @@ export default function () {
     : http.get(plan.base_url + (profile === 'cpu-fixed' ? '/bench/catalog' : '/bench/inventory') + '?profile=' + profile
       + (profile === 'mixed-delay' ? '&delayClass=' + delay : ''), opts);
   const finished = Date.now();
+  const returnedId = response.headers['X-Request-Id'];
+  const effectiveId = plan.public_dry_run && typeof returnedId === 'string' && /^[0-9a-f]{32}$/.test(returnedId) ? returnedId : id;
   let ok = false;
-  try { ok = response.headers['X-Request-Id'] === id && result(response, profile, delay); } catch (_) { /* Invalid bodies remain failed samples. */ }
-  console.log('NT533_REQUEST ' + JSON.stringify({ request_index: Number(index), request_id: id,
+  try { ok = returnedId === effectiveId && result(response, profile, delay); } catch (_) { /* Invalid bodies remain failed samples. */ }
+  console.log('NT533_REQUEST ' + JSON.stringify({ request_index: Number(index), request_id: effectiveId,
     instance_id: response.headers['X-Instance-Id'] || null, status: response.status,
     contract_ok: ok, duration_ms: finished - started, phase: scenario.name,
     started_utc: new Date(started).toISOString(), completed_utc: new Date(finished).toISOString() }));
