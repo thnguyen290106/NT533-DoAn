@@ -1511,6 +1511,12 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Kiểm kê thật hai Ubuntu, khóa digest cấu hình NGINX đang chạy, đối chiếu quota/connection và trace 1.000 prefix /24 cùng NAT một IP. Hồ sơ infra/D08_PREFLIGHT.md ghi nguyên điều kiện còn thiếu trước pilot, không chứng nhận G3.
 
+## Bàn giao D08-DMN
+
+- ADMIN trực tiếp thực hiện. ?o CPU pilot 80 req/s tr?n b?n c? ghi nh?n 2.850 l?i 504 v? 991 l?i 502 ? c?a s? ?o. D?ng l?i m?t buffer SHA-256 trong t?ng request, gi? nguy?n s? v?ng, checksum v? contract. ??i chi?u JDK 21 tr?n HOST kh?p s?u m?c t? 1 ??n 1.024.000 v?ng. ? 256.000 v?ng, heap allocation ?o ???c l? 12288448 B/request tr??c s?a v? 496 B/request sau s?a. N v? R_ref c?a b?n sau s?a s? ???c ?o l?i tr??c G3.
+- Ubuntu HOST services/catalog · `mvn -B -ntp test` · exit 0.
+
+
 
 
 
@@ -1748,6 +1754,33 @@ cd services/catalog &&
       },
       {
         "program": "k6",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "5ae6e7b9f2bb2fc3944f744a0a16f648417c67b96326cd4c:code",
+    "taskId": "5ae6e7b9f2bb2fc3944f744a0a16f648417c67b96326cd4c",
+    "member": "DMN",
+    "pccvId": "D08-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T16:34:23.335Z",
+    "base": "c42546329ef8b92c51847b5fd75eea4f246ff220",
+    "files": [
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/CatalogBenchController.java"
+    ],
+    "tests": [
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
