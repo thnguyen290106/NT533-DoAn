@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NT533 run manifest v1",
+  "type": "object",
+  "required": ["schema_version", "run_id", "seed", "trace_sha256", "commit", "image_digests", "config_sha256", "protocol_sha256", "started_utc", "status"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "seed": {"type": "integer"},
+    "trace_sha256": {"$ref": "#/$defs/sha256"},
+    "config_sha256": {"$ref": "#/$defs/sha256"},
+    "protocol_sha256": {"$ref": "#/$defs/sha256"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "image_digests": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+    "started_utc": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["running", "valid", "invalid"]},
+    "invalid_reason": {"type": "string"}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}
