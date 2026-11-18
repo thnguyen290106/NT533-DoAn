@@ -136,6 +136,13 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Order giới hạn connect 200 ms, cả body từng call 1 s và deadline Quote 2,5 s. Timeout hủy future, trả 504 và dừng fan-out. Integration test giữ headers rồi chặn body, kiểm 5xx downstream trả 503 và không gọi Inventory khi Catalog thất bại.
 
+## Bàn giao D04-DHN
+
+- ADMIN trực tiếp thực hiện. RR, LC và IPH sinh từ chung một cấu hình. Ba upstream giữ nguyên membership và chính sách proxy, chỉ thay directive thuật toán. Đối chiếu byte phần chung và kiểm nginx -t từng bản.
+- Ubuntu HOST . · `python3 -m unittest discover -s infra/tests -v` · exit 0.
+- Kiểm tra cấu hình/runtime bằng adapter HOST · exit 0.
+
+
 
 
 
@@ -146,6 +153,30 @@ cd services/catalog &&
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "0a9f823dc492ea3b9b440730c914c0ac0dc3663af0f6dc88:code",
+    "taskId": "0a9f823dc492ea3b9b440730c914c0ac0dc3663af0f6dc88",
+    "member": "DHN",
+    "pccvId": "D04-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:32:36.210Z",
+    "base": "2777d569ef429ce38c005d7721b7c2a7c9b3e042",
+    "files": [
+      "infra/routing.py",
+      "infra/tests/test_routing.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "186f6979f031df50f7fe4c6307f5edec99c31963f4f91cd4:code",
     "taskId": "186f6979f031df50f7fe4c6307f5edec99c31963f4f91cd4",
