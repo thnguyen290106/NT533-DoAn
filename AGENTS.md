@@ -147,6 +147,11 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Sinh trace UTF-8/LF từ request index, seed client và luồng delay độc lập. Test tái sinh byte/checksum, 1000 ID, 80/20 và đúng các cột quote/IP/profile.
 - Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis -p test*.py -v` · exit 0.
 
+## Bàn giao D05-DMN
+
+- ADMIN trực tiếp thực hiện. Khóa SHA-256 fixture chuẩn, ghi rõ workload và profile allowlist. Catalog ghi request/timer một lần theo route template và nhãn hữu hạn để phục vụ đối soát sau này.
+
+
 
 
 
@@ -976,6 +981,31 @@ cd services/catalog &&
         "program": "bash",
         "exitCode": 0
       },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "9c601301c3569281daeb0fa004e53de710802e4917abfbd2:code",
+    "taskId": "9c601301c3569281daeb0fa004e53de710802e4917abfbd2",
+    "member": "DMN",
+    "pccvId": "D05-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:43:57.699Z",
+    "base": "81fe46c2fffb6fb6ea697aca77ce866757bdb6e3",
+    "files": [
+      "services/catalog/src/main/java/vn/edu/uit/nt533/catalog/RequestMetadataFilter.java",
+      "services/catalog/src/test/java/vn/edu/uit/nt533/catalog/CatalogFixtureStoreTest.java",
+      "services/catalog/WORKLOAD.md"
+    ],
+    "tests": [
       {
         "program": "python3",
         "exitCode": 0

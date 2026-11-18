@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,14 @@ import org.springframework.core.io.ClassPathResource;
 
 class CatalogFixtureStoreTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    @Test
+    void fixtureBytesMatchTheReplicaContract() throws Exception {
+        try (var input = new ClassPathResource("catalog-products.json").getInputStream()) {
+            assertThat(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(input.readAllBytes())))
+                    .isEqualTo("bd76926a87fd55258a567c248146ff215632ae323bd276fcc7a76eae227d850e");
+        }
+    }
 
     @Test
     void loadsThePackagedFixtureOnceAsImmutableProducts() throws IOException {
