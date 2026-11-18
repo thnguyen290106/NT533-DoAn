@@ -27,6 +27,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @SpringBootTest(properties = "catalog.instance-id=C2")
 @AutoConfigureMockMvc
 class CatalogHttpTest {
+    @Test
+    void benchmarkIsUnavailableOutsideLab() throws Exception {
+        mvc.perform(get("/internal/bench").queryParam("profile", "cpu-fixed")).andExpect(status().isNotFound());
+    }
     private static final String PRODUCTS = "/api/catalog/products";
     private static final String REQUEST_ID = "0123456789abcdef0123456789abcdef";
 
