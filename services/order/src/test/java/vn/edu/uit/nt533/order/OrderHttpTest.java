@@ -27,7 +27,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class OrderHttpTest {
     private static final String RID = "0123456789abcdef0123456789abcdef";
-    private static final List<String> CALLS = Collections.synchronizedList(new ArrayList<>());
+    private record Call(String method, String path, String requestId, String callId) {}
+
+    private static final List<Call> CALLS = Collections.synchronizedList(new ArrayList<>());
     private static final HttpServer UPSTREAM = upstream();
     @Autowired private MockMvc mvc;
 
@@ -53,10 +55,14 @@ class OrderHttpTest {
         mvc.perform(input("{\"productId\":\"P001\",\"quantity\":2}"))
                 .andExpect(status().isOk()).andExpect(header().string("X-Request-ID", RID))
                 .andExpect(header().string("X-Instance-ID", "O1"))
+                .andExpect(jsonPath("$.unitPrice").value(100000))
                 .andExpect(jsonPath("$.totalPrice").value(200000))
+                .andExpect(jsonPath("$.currency").value("VND"))
                 .andExpect(jsonPath("$.availableStock").value(100))
                 .andExpect(jsonPath("$.requestId").value(RID));
-        assertThat(CALLS).containsExactly(RID + "-catalog", RID + "-inventory");
+        assertThat(CALLS).containsExactly(
+                new Call("GET", "/api/catalog/products/P001", RID, RID + "-catalog"),
+                new Call("GET", "/api/inventory/P001", RID, RID + "-inventory"));
     }
 
     @Test
@@ -73,7 +79,7 @@ class OrderHttpTest {
         assertThat(CALLS).isEmpty();
         mvc.perform(input("{\"productId\":\"P999\",\"quantity\":2}"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("PRODUCT_NOT_FOUND"));
-        assertThat(CALLS).containsExactly(RID + "-catalog");
+        assertThat(CALLS).containsExactly(new Call("GET", "/api/catalog/products/P999", RID, RID + "-catalog"));
     }
 
     @Test
@@ -85,6 +91,18 @@ class OrderHttpTest {
         mvc.perform(post("/api/orders/quote").contentType(MediaType.TEXT_PLAIN).content("text"))
                 .andExpect(status().isUnsupportedMediaType())
                 .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MEDIA_TYPE"));
+    }
+
+    @Test
+    void inventoryResponseWithAnotherRequestIdIsRejected() throws Exception {
+        mvc.perform(input("{\"productId\":\"P004\",\"quantity\":1}"))
+                .andExpect(status().isBadGateway())
+                .andExpect(header().string("X-Request-ID", RID))
+                .andExpect(jsonPath("$.requestId").value(RID))
+                .andExpect(jsonPath("$.error.code").value("DOWNSTREAM_BAD_RESPONSE"));
+        assertThat(CALLS).containsExactly(
+                new Call("GET", "/api/catalog/products/P004", RID, RID + "-catalog"),
+                new Call("GET", "/api/inventory/P004", RID, RID + "-inventory"));
     }
 
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder input(String body) {
@@ -105,7 +123,8 @@ class OrderHttpTest {
 
     private static void respond(HttpExchange request) throws IOException {
         String path = request.getRequestURI().getPath();
-        CALLS.add(request.getRequestHeaders().getFirst("X-Call-ID"));
+        String requestId = request.getRequestHeaders().getFirst("X-Request-ID");
+        CALLS.add(new Call(request.getRequestMethod(), path, requestId, request.getRequestHeaders().getFirst("X-Call-ID")));
         String id = path.substring(path.lastIndexOf('/') + 1);
         boolean catalog = path.startsWith("/api/catalog/");
         String body = catalog
@@ -114,7 +133,8 @@ class OrderHttpTest {
         if (id.equals("P002") && catalog) {
             body = "\"id\":\"" + id + "\",\"price\":\"100000\",\"currency\":\"VND\"";
         }
-        byte[] bytes = ("{" + body + ",\"requestId\":\"" + RID + "\"}").getBytes(StandardCharsets.UTF_8);
+        String responseId = !catalog && id.equals("P004") ? "00000000000000000000000000000000" : requestId;
+        byte[] bytes = ("{" + body + ",\"requestId\":\"" + responseId + "\"}").getBytes(StandardCharsets.UTF_8);
         try (request) {
             request.getResponseHeaders().set("Content-Type", "application/json");
             request.sendResponseHeaders(id.equals("P999") ? 404 : 200, bytes.length);

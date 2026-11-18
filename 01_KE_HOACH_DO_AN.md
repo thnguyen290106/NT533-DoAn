@@ -1398,6 +1398,12 @@ cd services/catalog &&
 - ADMIN thực hiện D3. Compose khai báo ba replica mỗi dịch vụ, healthcheck riêng, NGINX có ba upstream RR độc lập và listener nội bộ 8083 cho các call của Order. Cổng backend chỉ dùng nội bộ. Prometheus bind loopback, retention 15 ngày. Kiểm tra cả chín replica và phân phối thật ở lần triển khai tích hợp.
 - `docker compose config`, kiểm tra ranh giới Compose bản gốc/bản resolve và `nginx -t` trên HOST, exit 0.
 
+## Bàn giao D03-TDN
+
+- ADMIN thực hiện D3. Củng cố contract Quote bằng hai HTTP call theo thứ tự Catalog rồi Inventory. Kiểm tra giá, tồn, tổng tiền, request ID và call ID của từng downstream. HTTP 502 khi Inventory trả request ID khác. Kiểm thử xuyên cụm dùng bản triển khai D3.
+- `mvn -B -ntp verify -DfailIfNoTests=true` tại `services/order` trên HOST, exit 0, 4/4 ca đạt.
+
+
 
 
 <!-- NT533_PROGRESS_BEGIN v1 -->
@@ -2913,6 +2919,37 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "fea7088e3f7d17aa1e6d24473a9892193f9e597bc98662a6:code",
+    "taskId": "fea7088e3f7d17aa1e6d24473a9892193f9e597bc98662a6",
+    "member": "TDN",
+    "pccvId": "D03-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:06:07.989Z",
+    "base": "adc88a2fa2d424aae9f90b3ebcd2d5bae3e655b9",
+    "files": [
+      "services/order/src/test/java/vn/edu/uit/nt533/order/OrderHttpTest.java"
+    ],
+    "tests": [
+      {
+        "program": "mvn",
+        "exitCode": 0
+      },
+      {
+        "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
