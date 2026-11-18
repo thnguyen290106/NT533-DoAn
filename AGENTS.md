@@ -132,6 +132,11 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Inventory lab xử lý fast 20 ms, slow 200 ms và mapping không delay; fault I3 thêm đúng 300 ms. Dashboard có CPU, JVM RAM, GC và bộ đếm theo service/instance. Tỷ lệ lớp delay do trace quyết định.
 - Ubuntu HOST . · `python3 -m json.tool observability/dashboard.json` · exit 0.
 
+## Bàn giao D04-TDN
+
+- ADMIN trực tiếp thực hiện. Order giới hạn connect 200 ms, cả body từng call 1 s và deadline Quote 2,5 s. Timeout hủy future, trả 504 và dừng fan-out. Integration test giữ headers rồi chặn body, kiểm 5xx downstream trả 503 và không gọi Inventory khi Catalog thất bại.
+
+
 
 
 
@@ -906,6 +911,30 @@ cd services/catalog &&
         "program": "bash",
         "exitCode": 0
       },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "b634393e9071ef8858b3fffab773e21536cd3418be5b803a:code",
+    "taskId": "b634393e9071ef8858b3fffab773e21536cd3418be5b803a",
+    "member": "TDN",
+    "pccvId": "D04-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-18T12:30:33.957Z",
+    "base": "baf4ca180dd3955bea66bcda1bdc94fffef1708e",
+    "files": [
+      "services/order/src/main/java/vn/edu/uit/nt533/order/QuoteService.java",
+      "services/order/src/test/java/vn/edu/uit/nt533/order/OrderHttpTest.java"
+    ],
+    "tests": [
       {
         "program": "python3",
         "exitCode": 0
