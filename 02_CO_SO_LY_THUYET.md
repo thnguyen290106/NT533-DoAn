@@ -498,6 +498,10 @@ Nếu trễ, thứ tự cắt đã chọn: bỏ B0 trước (96→90 chính, 98 
 
 Quyết định v1 không thay đổi bằng trao đổi miệng: PR nêu quyết định cũ/mới/lý do/case bị ảnh hưởng, owner và reviewer theo bảng; cập nhật cả hai Markdown. Đổi scope/matrix/effort/lịch phải cập nhật workbook trước khi chạy tiếp; đổi code/config/profile/SLO làm mất so sánh thì tạo protocol_version mới và chạy lại các cell bị ảnh hưởng, không gộp dữ liệu khác version. Raw lưu bất biến, backup sang thiết bị/thư mục lưu trữ thứ hai kèm SHA-256 trước khi cleanup; không commit secret, không xóa archive chưa bàn giao.
 
+#### Bổ sung Q07 · Warm-up trên topology remote-zerotier
+
+`nt533-q05-remote-v2` áp dụng cho pilot D8 mới và chiến dịch D9–D11 tương ứng. Tiêu chí p95 trong hai cửa sổ warm-up lấy từ NGINX với ngưỡng 10%. Giữ ngưỡng success RPS 5%, nhánh 300 s và điều kiện dừng G3. SLO vẫn chấm đầu-cuối tại LOADGEN. Giữ raw của cả hai phía, p95/p99, RTT, jitter, packet loss và tài nguyên LOADGEN. Xem [quyết định Q07 và cách tái lập](experiments/PROTOCOL_REMOTE_V2.md). Bản v1 và dữ liệu pilot trước đó được bảo toàn.
+
 **Còn phải thực hiện, không phải còn phải tự lựa chọn:** kiểm kê HOST/LOADGEN, rà advisory/build/smoke, đo N/R_ref/VU, thu digest/hash thực, thực nghiệm, phản hồi giảng viên, bàn giao. Mỗi giá trị cần đo đã có owner, quy tắc và cổng chặn ở trên. Không có số liệu hiệu năng thật trong lần chốt tài liệu này.
 
 ### Q08. Từ số 0: môi trường, repository và quy ước source
