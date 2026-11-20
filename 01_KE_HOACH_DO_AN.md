@@ -515,6 +515,10 @@ Quyết định v1 không thay đổi bằng trao đổi miệng: PR nêu quyế
 
 `nt533-q05-remote-v2` áp dụng cho pilot D8 mới và chiến dịch D9–D11 tương ứng. Tiêu chí p95 trong hai cửa sổ warm-up lấy từ NGINX với ngưỡng 10%. Giữ ngưỡng success RPS 5%, nhánh 300 s và điều kiện dừng G3. SLO vẫn chấm đầu-cuối tại LOADGEN. Giữ raw của cả hai phía, p95/p99, RTT, jitter, packet loss và tài nguyên LOADGEN. Xem [quyết định Q07 và cách tái lập](experiments/PROTOCOL_REMOTE_V2.md). Bản v1 và dữ liệu pilot trước đó được bảo toàn.
 
+#### Bổ sung Q07 · Giới hạn công việc đồng thời tại Catalog
+
+`nt533-q05-remote-v3` giữ các ngưỡng đo của v2 và ghi phiên bản runtime mới sau khi giới hạn hai phép tính `cpu-fixed` đồng thời trên mỗi replica Catalog. HTTP 503 khi quá tải được ghi và chấm như lỗi đầu cuối. Thực hiện lại pilot D8 và dùng cùng runtime cho cả chiến dịch. Xem [quyết định Q07 v3](experiments/PROTOCOL_REMOTE_V3.md).
+
 **Còn phải thực hiện, không phải còn phải tự lựa chọn:** kiểm kê HOST/LOADGEN, rà advisory/build/smoke, đo N/R_ref/VU, thu digest/hash thực, thực nghiệm, phản hồi giảng viên, bàn giao. Mỗi giá trị cần đo đã có owner, quy tắc và cổng chặn ở trên. Không có số liệu hiệu năng thật trong lần chốt tài liệu này.
 
 ### Q08. Từ số 0: môi trường, repository và quy ước source

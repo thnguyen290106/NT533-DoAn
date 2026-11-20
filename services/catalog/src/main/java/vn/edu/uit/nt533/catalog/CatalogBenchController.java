@@ -7,6 +7,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 final class CatalogBenchController {
     private final int iterations;
+    private final Semaphore cpuSlots = new Semaphore(2);
 
     CatalogBenchController(@Value("${nt533.bench.iterations:1000}") int iterations) {
         if (iterations < 1 || iterations > 1_024_000) {
@@ -33,16 +35,24 @@ final class CatalogBenchController {
         if (query.size() != 1 || !List.of("cpu-fixed").equals(query.get("profile"))) {
             throw new CatalogException(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "Invalid benchmark profile or query");
         }
-        MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-        byte[] input = "NT533-v1".getBytes(StandardCharsets.UTF_8);
-        byte[] checksum = new byte[32];
-        for (int round = 0; round < iterations; round++) {
-            sha256.update(input);
-            sha256.digest(checksum, 0, checksum.length);
-            input = checksum;
+        // CPU work queued past the upstream deadline keeps consuming quota after the client has left.
+        if (!cpuSlots.tryAcquire()) {
+            throw new CatalogException(HttpStatus.SERVICE_UNAVAILABLE, "BENCH_OVERLOADED", "Benchmark capacity exhausted");
         }
-        RequestMetadata metadata = RequestMetadata.from(request);
-        return new Work("cpu-fixed", iterations, HexFormat.of().formatHex(checksum), metadata.requestId(), metadata.instanceId());
+        try {
+            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            byte[] input = "NT533-v1".getBytes(StandardCharsets.UTF_8);
+            byte[] checksum = new byte[32];
+            for (int round = 0; round < iterations; round++) {
+                sha256.update(input);
+                sha256.digest(checksum, 0, checksum.length);
+                input = checksum;
+            }
+            RequestMetadata metadata = RequestMetadata.from(request);
+            return new Work("cpu-fixed", iterations, HexFormat.of().formatHex(checksum), metadata.requestId(), metadata.instanceId());
+        } finally {
+            cpuSlots.release();
+        }
     }
 
     record Work(String profile, int iterations, String checksum, String requestId, String instanceId) {}
