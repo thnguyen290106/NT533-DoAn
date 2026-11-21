@@ -1,6 +1,7 @@
 """Collect an A4 key mapping twice at one request per 100 ms."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import csv
 from hashlib import sha256
 import json
@@ -55,45 +56,67 @@ def fairness(counts):
             'cv': math.sqrt(sum((n - mean) ** 2 for n in counts) / len(counts)) / mean}
 
 
-def collect(base, seed, variant, membership, generation, config_hash, output):
+def collect(base, seed, variant, membership, generation, config_hash, output, *, concurrency=1, rate=10):
     validate_target(base)
     if seed not in SEEDS or variant not in ('ch-id', 'gh-id') or membership not in (3, 4):
         raise ValueError('unknown A4 keyset, variant or membership')
     if not re.fullmatch(r'[a-f0-9]{16}', generation) or not re.fullmatch(r'[a-f0-9]{64}', config_hash):
         raise ValueError('expected generation and config hash are required')
+    if type(concurrency) is not int or concurrency < 1 or type(rate) is not int or rate < 1:
+        raise ValueError('invalid A4 concurrency or rate')
     keys = sorted(client_ids(seed))
     opener = build_opener(NoRedirect())
+    instances = {f'I{k}' for k in range(1, membership + 1)}
+
+    def request(client, rid):
+        req = Request(base + '/bench/inventory?profile=mapping', headers={
+            'X-Request-ID': rid, 'X-Lab-Client-ID': client, 'Connection': 'close'})
+        with opener.open(req, timeout=5) as response:
+            body = json.load(response)
+            instance = body.get('instanceId')
+            if (response.status != 200 or response.headers.get('X-NT533-Generation') != generation
+                    or response.headers.get('X-Request-ID') != rid or body.get('requestId') != rid
+                    or body.get('profile') != 'mapping' or instance not in instances
+                    or response.headers.get('X-Instance-ID') != instance):
+                raise ValueError('invalid response or stale routing generation')
+            return instance
+
+    probe = sha256(f'{seed}:{variant}:{generation}:smoke'.encode()).hexdigest()[:32]
+    request(keys[0], probe)
     sweeps = []
     with Path(output).open('x', encoding='utf-8', newline='') as stream:
         writer = csv.writer(stream, lineterminator='\n')
         writer.writerow(FIELDS)
         for n in (1, 2):
             snapshot = {}
-            start = time.monotonic()
-            for i, client in enumerate(keys):
-                scheduled = start + i / 10
-                time.sleep(max(0, scheduled - time.monotonic()))
-                if time.monotonic() - scheduled >= .1:
-                    raise ValueError('cannot sustain 10 requests/s with concurrency one')
-                rid = sha256(f'{seed}:{variant}:{membership}:{n}:{i}'.encode()).hexdigest()[:32]
-                req = Request(base + '/bench/inventory?profile=mapping', headers={
-                    'X-Request-ID': rid, 'X-Lab-Client-ID': client, 'X-Lab-Source-IP': '10.250.0.10', 'Connection': 'close'})
-                try:
-                    with opener.open(req, timeout=5) as response:
-                        body = json.load(response)
-                        instance = body.get('instanceId')
-                        if time.monotonic() - scheduled >= .1:
-                            raise ValueError('response exceeded one 10 requests/s slot')
-                        if (response.status != 200 or response.headers.get('X-NT533-Generation') != generation
-                                or response.headers.get('X-Request-ID') != rid or body.get('requestId') != rid
-                                or body.get('profile') != 'mapping' or instance not in {f'I{k}' for k in range(1, membership + 1)}
-                                or response.headers.get('X-Instance-ID') != instance):
-                            raise ValueError('invalid response or stale routing generation')
+            if concurrency == 1:
+                start = time.monotonic()
+                slot = 1 / rate
+                for i, client in enumerate(keys):
+                    scheduled = start + i * slot
+                    time.sleep(max(0, scheduled - time.monotonic()))
+                    if time.monotonic() - scheduled >= slot:
+                        raise ValueError(f'cannot sustain {rate} requests/s with concurrency one')
+                    rid = sha256(f'{seed}:{variant}:{membership}:{n}:{i}'.encode()).hexdigest()[:32]
+                    try:
+                        instance = request(client, rid)
+                        if time.monotonic() - scheduled >= slot:
+                            raise ValueError(f'response exceeded one {rate} requests/s slot')
                         snapshot[client] = instance
                         writer.writerow((seed, variant, membership, n, client, instance, 'ok', config_hash))
-                except (OSError, ValueError):
-                    writer.writerow((seed, variant, membership, n, client, '', 'invalid', config_hash))
-                    raise
+                    except (OSError, ValueError):
+                        writer.writerow((seed, variant, membership, n, client, '', 'invalid', config_hash))
+                        raise
+            else:
+                def task(item):
+                    i, client = item
+                    rid = sha256(f'{seed}:{variant}:{membership}:{n}:{i}'.encode()).hexdigest()[:32]
+                    return client, request(client, rid)
+
+                with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                    for client, instance in pool.map(task, enumerate(keys)):
+                        snapshot[client] = instance
+                        writer.writerow((seed, variant, membership, n, client, instance, 'ok', config_hash))
             sweeps.append(snapshot)
     return stable(sweeps, keys, membership)
 

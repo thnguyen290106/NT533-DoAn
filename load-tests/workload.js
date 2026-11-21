@@ -23,8 +23,12 @@ function result(response, profile, delay) {
 
 export default function () {
   const offset = plan.offsets[scenario.name] || 0;
-  const row = trace[offset + scenario.iterationInTest];
-  if (!row) throw new Error('trace exhausted at iteration index ' + (offset + scenario.iterationInTest));
+  const indexInPhase = scenario.iterationInTest;
+  // The arrival scheduler can tick once more on a phase boundary.
+  const limit = plan.dry_run ? trace.length : plan.rate * plan[scenario.name + '_seconds'];
+  if (indexInPhase >= limit) return;
+  const row = trace[offset + indexInPhase];
+  if (!row) throw new Error('trace exhausted at iteration index ' + (offset + indexInPhase));
   const [index, id, client, effectiveIp, profile, delay, product, quantity] = row;
   const headers = { 'X-Request-ID': id, 'X-Lab-Client-ID': client, 'Content-Type': 'application/json' };
   if (effectiveIp) headers['X-Lab-Source-IP'] = effectiveIp;
@@ -32,15 +36,21 @@ export default function () {
   const started = Date.now();
   const response = profile === 'quote'
     ? http.post(plan.base_url + '/api/orders/quote', JSON.stringify({ productId: product, quantity: Number(quantity) }), opts)
-    : http.get(plan.base_url + (profile === 'cpu-fixed' ? '/bench/catalog' : '/bench/inventory') + '?profile=' + profile
+    : http.get(plan.base_url + (plan.private_catalog ? '/internal/bench' : profile === 'cpu-fixed' ? '/bench/catalog' : '/bench/inventory') + '?profile=' + profile
       + (profile === 'mixed-delay' ? '&delayClass=' + delay : ''), opts);
   const finished = Date.now();
   const returnedId = response.headers['X-Request-Id'];
+  const generation = response.headers['X-Nt533-Generation'] || null;
   const effectiveId = plan.public_dry_run && typeof returnedId === 'string' && /^[0-9a-f]{32}$/.test(returnedId) ? returnedId : id;
   let ok = false;
-  try { ok = returnedId === effectiveId && result(response, profile, delay); } catch (_) { /* Invalid bodies remain failed samples. */ }
+  try {
+    ok = returnedId === effectiveId && (!plan.config_generation || plan.private_catalog || generation === plan.config_generation)
+      && result(response, profile, delay);
+  } catch (_) { /* Invalid bodies remain failed samples. */ }
   console.log('NT533_REQUEST ' + JSON.stringify({ request_index: Number(index), request_id: effectiveId,
     instance_id: response.headers['X-Instance-Id'] || null, status: response.status,
     contract_ok: ok, duration_ms: finished - started, phase: scenario.name,
+    config_generation: generation,
+    phase_started_utc: new Date(scenario.startTime).toISOString(),
     started_utc: new Date(started).toISOString(), completed_utc: new Date(finished).toISOString() }));
 }

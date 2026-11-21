@@ -19,8 +19,9 @@ def client_ids(seed):
     return clients
 
 
-def trace(seed, trace_id, profile, count, *, nat=False, hot_id=False):
-    if profile not in PROFILES or count < 1 or (nat or hot_id) and profile != 'mixed-delay' or hot_id and not nat:
+def trace(seed, trace_id, profile, count, *, nat=False, hot_id=False, actual_ip=False):
+    if (profile not in PROFILES or count < 1 or (nat or hot_id) and profile != 'mixed-delay'
+            or hot_id and not nat or nat and actual_ip):
         raise ValueError("Trace profile and positive row count required")
     client_rng, delay_rng = random.Random(seed), random.Random(seed + 100_000)
     clients = client_ids(seed)
@@ -30,7 +31,7 @@ def trace(seed, trace_id, profile, count, *, nat=False, hot_id=False):
     for index in range(count):
         j = (0 if client_rng.random() < .8 else client_rng.randrange(1, 1000)) if hot_id else client_rng.randrange(1000)
         emit_id = sha256(f"{trace_id}:{index}".encode()).hexdigest()[:32]
-        address = "10.250.0.10" if nat else "" if profile == "quote" else f"10.{64 + j // 256}.{j % 256}.10"
+        address = "10.250.0.10" if nat else "" if actual_ip or profile == "quote" else f"10.{64 + j // 256}.{j % 256}.10"
         delay = ("fast" if delay_rng.random() < .8 else "slow") if profile == "mixed-delay" else ""
         writer.writerow((index, emit_id, clients[j], address, profile, delay,
                          "P001" if profile == "quote" else "", 2 if profile == "quote" else ""))
