@@ -293,6 +293,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Stop/start I3 và membership A4. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
 
+## Bàn giao D11-HXN
+
+- ADMIN trực tiếp thực hiện. Khóa G4 với 104 lượt và 60 sweep. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -1051,6 +1056,25 @@ cd services/catalog &&
         "program": "git",
         "exitCode": 0
       },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "7586ef1be61b73424182023ce545debc6bfac3018aac6a53:code",
+    "taskId": "7586ef1be61b73424182023ce545debc6bfac3018aac6a53",
+    "member": "HXN",
+    "pccvId": "D11-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T05:30:46.208Z",
+    "base": "e4eca24505a011c10bb0d776517b5293c881edf3",
+    "files": [
+      "experiments/D11_HXN_EVIDENCE.md"
+    ],
+    "tests": [
       {
         "program": "python3",
         "exitCode": 0
