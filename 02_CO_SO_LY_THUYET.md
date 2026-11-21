@@ -1664,6 +1664,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Khóa G4 với 104 lượt và 60 sweep. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
 
+## Bàn giao D11-DMN
+
+- ADMIN trực tiếp thực hiện. Mapping có và không có trọng số. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -1991,6 +1996,29 @@ cd services/catalog &&
       },
       {
         "program": "k6",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "449625522e7b8ccbd16d88a5d211a9d24d773db3ca3bcc20:code",
+    "taskId": "449625522e7b8ccbd16d88a5d211a9d24d773db3ca3bcc20",
+    "member": "DMN",
+    "pccvId": "D11-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T05:36:02.418Z",
+    "base": "2d0c451c45a185c36165db5410b871685c584e56",
+    "files": [
+      "services/catalog/D11_DMN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
