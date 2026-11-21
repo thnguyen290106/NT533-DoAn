@@ -1558,6 +1558,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Cửa sổ B2 và JVM. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D09-TDN
+
+- ADMIN trực tiếp thực hiện. Phương pháp và đối chiếu Quote B3. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -1893,6 +1898,29 @@ cd services/catalog &&
       },
       {
         "program": "k6",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "584f70085b5700ea1d556f758a4556646529ad65d3da7819:code",
+    "taskId": "584f70085b5700ea1d556f758a4556646529ad65d3da7819",
+    "member": "TDN",
+    "pccvId": "D09-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T03:54:06.783Z",
+    "base": "c1f90bc0787a269c1afdabe1594e16fbea91838d",
+    "files": [
+      "services/order/D09_TDN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
