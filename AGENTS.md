@@ -261,6 +261,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Đối chiếu B0, B1 và B4. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D09-TTN
+
+- ADMIN trực tiếp thực hiện. Cửa sổ B2 và JVM. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -1898,6 +1903,25 @@ cd services/catalog &&
         "program": "git",
         "exitCode": 0
       },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "d4e480e540eb126d4515e20307e876d528da62ed615ed395:code",
+    "taskId": "d4e480e540eb126d4515e20307e876d528da62ed615ed395",
+    "member": "TTN",
+    "pccvId": "D09-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T03:48:47.629Z",
+    "base": "d43cb515ff81ab33b4d8db9b54c43cfce15ef462",
+    "files": [
+      "observability/D09_TTN_EVIDENCE.md"
+    ],
+    "tests": [
       {
         "program": "python3",
         "exitCode": 0
