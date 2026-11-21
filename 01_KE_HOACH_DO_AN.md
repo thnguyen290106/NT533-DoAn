@@ -1582,6 +1582,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Thảo luận theo hai contrast đã đăng ký. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D11-DHN
+
+- ADMIN trực tiếp thực hiện. Stop/start I3 và membership A4. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -1625,6 +1630,25 @@ cd services/catalog &&
 <!-- NT533_PROGRESS_BEGIN v1 -->
 ```json
 [
+  {
+    "id": "06d9bc4cd7c6eeaca7fe528c02dcc58b3129f12ddf4fc2c8:code",
+    "taskId": "06d9bc4cd7c6eeaca7fe528c02dcc58b3129f12ddf4fc2c8",
+    "member": "DHN",
+    "pccvId": "D11-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T05:27:42.372Z",
+    "base": "adf5a7e312d98ff537d31436545f189b01c75454",
+    "files": [
+      "infra/D11_DHN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
   {
     "id": "06e5c475aaaefe7536e04d46e46ae43ea47fbcc755776405:code",
     "taskId": "06e5c475aaaefe7536e04d46e46ae43ea47fbcc755776405",
