@@ -1668,6 +1668,12 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Mapping có và không có trọng số. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
 
+## Bàn giao D11-TTN
+
+- ADMIN trực tiếp thực hiện. Timeline A2 và hồi phục. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
+- Ubuntu HOST . · `python3 -m unittest discover -s observability/tests` · exit 0.
+
+
 
 
 
@@ -3180,6 +3186,31 @@ cd services/catalog &&
       },
       {
         "program": "git",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "b96f06c7dc680550291683f0c0bc1af48125008ff7c58ff8:code",
+    "taskId": "b96f06c7dc680550291683f0c0bc1af48125008ff7c58ff8",
+    "member": "TTN",
+    "pccvId": "D11-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T05:39:30.035Z",
+    "base": "bb0364433fed91dca691792ce46b15eac29b83fb",
+    "files": [
+      "observability/D11_TTN_EVIDENCE.md",
+      "observability/recovery.py",
+      "observability/tests/test_recovery.py"
+    ],
+    "tests": [
+      {
+        "program": "python3",
         "exitCode": 0
       },
       {
