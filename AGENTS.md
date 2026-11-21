@@ -285,6 +285,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Đối chiếu raw, summary và hình. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D10-TDN
+
+- ADMIN trực tiếp thực hiện. Thảo luận theo hai contrast đã đăng ký. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -973,6 +978,29 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "7180de16b2f2537b8b2e20c07f941ca91d4dc3019c5413cb:code",
+    "taskId": "7180de16b2f2537b8b2e20c07f941ca91d4dc3019c5413cb",
+    "member": "TDN",
+    "pccvId": "D10-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T04:52:36.001Z",
+    "base": "4aa69bcf1bfa1c1d609ec637e5bf2a10c5d24f15",
+    "files": [
+      "services/order/D10_TDN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
