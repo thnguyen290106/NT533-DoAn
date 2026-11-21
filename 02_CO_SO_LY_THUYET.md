@@ -1640,6 +1640,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. A1, A3 và bằng chứng effective IP. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D10-HXN
+
+- ADMIN trực tiếp thực hiện. 33 lượt advanced và 8 xác nhận. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -2383,6 +2388,25 @@ cd services/catalog &&
         "program": "python3",
         "exitCode": 0
       },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "7a3c724b023cd720442563a6741cf1bf4984495ff0b5be18:code",
+    "taskId": "7a3c724b023cd720442563a6741cf1bf4984495ff0b5be18",
+    "member": "HXN",
+    "pccvId": "D10-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T04:34:06.570Z",
+    "base": "73527c525c4b2130adb57efc249f84e6f1b2fdcc",
+    "files": [
+      "experiments/D10_HXN_EVIDENCE.md"
+    ],
+    "tests": [
       {
         "program": "python3",
         "exitCode": 0
