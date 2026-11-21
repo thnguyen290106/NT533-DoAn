@@ -306,6 +306,11 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Timeline A2 và hồi phục. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
 - Ubuntu HOST . · `python3 -m unittest discover -s observability/tests` · exit 0.
 
+## Bàn giao D11-TDN
+
+- ADMIN trực tiếp thực hiện. Tái lập từ clone mới. Kiểm tra từ các archive đã đối chiếu SHA-256; 9 lượt hiệu năng và 60 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -2168,6 +2173,29 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "d465340bf761dc698e4f035171ca044d71e0b7a013172a10:code",
+    "taskId": "d465340bf761dc698e4f035171ca044d71e0b7a013172a10",
+    "member": "TDN",
+    "pccvId": "D11-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T05:44:35.723Z",
+    "base": "82078d76e09a283d92da92bcd91bf6fd042a80c4",
+    "files": [
+      "services/order/D11_TDN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
