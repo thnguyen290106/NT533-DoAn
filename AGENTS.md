@@ -257,6 +257,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Ledger core B0–B4. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D09-DMN
+
+- ADMIN trực tiếp thực hiện. Đối chiếu B0, B1 và B4. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -1000,6 +1005,29 @@ cd services/catalog &&
       },
       {
         "program": "curl",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "89e00a555775e2fb6a6d2f88e9b4586349b197ade9867be9:code",
+    "taskId": "89e00a555775e2fb6a6d2f88e9b4586349b197ade9867be9",
+    "member": "DMN",
+    "pccvId": "D09-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T03:45:54.068Z",
+    "base": "21376b7d5e73ddf46b3e69da74502bd17c0b0b42",
+    "files": [
+      "services/catalog/D09_DMN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
