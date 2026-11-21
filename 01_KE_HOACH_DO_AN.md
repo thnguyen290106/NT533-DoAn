@@ -1533,6 +1533,17 @@ cd services/catalog &&
 - ADMIN trực tiếp thực hiện. Chốt lịch từ ba biên nhận R_ref và ghi SHA-256 trace trước chiến dịch. B0–B4 54 lượt, A1/A3 và hai contrast 41 lượt, A2 9 lượt cùng 60 sweep A4.
 - Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis/tests` · exit 0.
 
+## Bàn giao D08-TDN
+
+- ADMIN trực tiếp thực hiện. Chấp nhận G3 với ba R_ref đo thật, N=512000 và digest runtime/runner đã khóa. D9–D11 dùng đúng schedule 104 lượt và 60 sweep.
+
+### Bổ sung Q07 · Warm-up trên mạng từ xa
+
+- Áp dụng [nt533-q05-remote-v3](experiments/PROTOCOL_REMOTE_V3.md) cho topology remote-zerotier. Hai cửa sổ 30 s cuối dùng p95 NGINX với ngưỡng 10% và success RPS tại LOADGEN với ngưỡng 5%. Sau nhánh 300 s, vượt một trong hai ngưỡng thì dừng G3.
+- SLO tiếp tục dùng p95 đầu cuối tại LOADGEN. Báo cáo giữ p95/p99 của hai phía, RTT, jitter, mất gói và tài nguyên LOADGEN. Dữ liệu v1 giữ riêng theo phiên bản, cùng bằng chứng và SHA-256.
+
+
+
 
 
 
@@ -2177,6 +2188,29 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "78629fb949499a64f0ac0c00a669f0c2e6099ac76698809e:code",
+    "taskId": "78629fb949499a64f0ac0c00a669f0c2e6099ac76698809e",
+    "member": "TDN",
+    "pccvId": "D08-TDN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T02:50:54.403Z",
+    "base": "fa4cc10f060fd72049279efba521258a7e5fa34e",
+    "files": [
+      "services/order/D08_PROTOCOL_LOCK.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
