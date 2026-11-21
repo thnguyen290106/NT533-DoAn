@@ -1546,6 +1546,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Vận hành 54 lượt core. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D09-HXN
+
+- ADMIN trực tiếp thực hiện. Ledger core B0–B4. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -2899,6 +2904,25 @@ cd services/catalog &&
         "program": "python3",
         "exitCode": 0
       },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "c9fdc6f55bf3342744f84b39dc62eba6e79e03c8aeaedd1d:code",
+    "taskId": "c9fdc6f55bf3342744f84b39dc62eba6e79e03c8aeaedd1d",
+    "member": "HXN",
+    "pccvId": "D09-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T03:40:49.010Z",
+    "base": "e849861d8a735d04139f68155df3ccce913a34c4",
+    "files": [
+      "experiments/D09_HXN_EVIDENCE.md"
+    ],
+    "tests": [
       {
         "program": "python3",
         "exitCode": 0
