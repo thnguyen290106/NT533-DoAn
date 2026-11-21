@@ -277,6 +277,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. 33 lượt advanced và 8 xác nhận. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D10-TTN
+
+- ADMIN trực tiếp thực hiện. Delay I3 và phân phối hot-ID. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -508,6 +513,25 @@ cd services/catalog &&
         "program": "python3",
         "exitCode": 0
       },
+      {
+        "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "3ee7fc38a4832bb722c7608320eb53c788b5ddfe13ff11c0:code",
+    "taskId": "3ee7fc38a4832bb722c7608320eb53c788b5ddfe13ff11c0",
+    "member": "TTN",
+    "pccvId": "D10-TTN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T04:37:22.130Z",
+    "base": "a4dca95085f11547a5c7b5609fa3454145e660bf",
+    "files": [
+      "observability/D10_TTN_EVIDENCE.md"
+    ],
+    "tests": [
       {
         "program": "python3",
         "exitCode": 0
