@@ -269,6 +269,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Phương pháp và đối chiếu Quote B3. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D10-DHN
+
+- ADMIN trực tiếp thực hiện. A1, A3 và bằng chứng effective IP. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -1288,6 +1293,25 @@ cd services/catalog &&
       },
       {
         "program": "mvn",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "99bc49d85bc9cc024b7de3474574d07a2f07f81b98c3ac61:code",
+    "taskId": "99bc49d85bc9cc024b7de3474574d07a2f07f81b98c3ac61",
+    "member": "DHN",
+    "pccvId": "D10-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T04:31:26.791Z",
+    "base": "a7d2a8940871565e850a4a9a10e87d487dde6c9c",
+    "files": [
+      "infra/D10_DHN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
         "exitCode": 0
       }
     ],
