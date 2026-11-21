@@ -1542,6 +1542,11 @@ cd services/catalog &&
 - Áp dụng [nt533-q05-remote-v3](experiments/PROTOCOL_REMOTE_V3.md) cho topology remote-zerotier. Hai cửa sổ 30 s cuối dùng p95 NGINX với ngưỡng 10% và success RPS tại LOADGEN với ngưỡng 5%. Sau nhánh 300 s, vượt một trong hai ngưỡng thì dừng G3.
 - SLO tiếp tục dùng p95 đầu cuối tại LOADGEN. Báo cáo giữ p95/p99 của hai phía, RTT, jitter, mất gói và tài nguyên LOADGEN. Dữ liệu v1 giữ riêng theo phiên bản, cùng bằng chứng và SHA-256.
 
+## Bàn giao D09-DHN
+
+- ADMIN trực tiếp thực hiện. Vận hành 54 lượt core. Kiểm tra từ các archive đã đối chiếu SHA-256; 54 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -1819,6 +1824,25 @@ cd services/catalog &&
       },
       {
         "program": "k6",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "476853838b4e98155c11a32960c7211f71d99c1f51b8a5b6:code",
+    "taskId": "476853838b4e98155c11a32960c7211f71d99c1f51b8a5b6",
+    "member": "DHN",
+    "pccvId": "D09-DHN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T03:37:47.764Z",
+    "base": "8f949138e45fefbf173308875b9a7595ef58b8d7",
+    "files": [
+      "infra/D09_DHN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
         "exitCode": 0
       }
     ],
