@@ -1648,6 +1648,11 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Delay I3 và phân phối hot-ID. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
 
+## Bàn giao D10-DMN
+
+- ADMIN trực tiếp thực hiện. Đối chiếu raw, summary và hình. Kiểm tra từ các archive đã đối chiếu SHA-256; 41 lượt hiệu năng và 0 sweep hợp lệ trong ngày.
+
+
 
 
 
@@ -2363,6 +2368,29 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "772df110efe9de3a8b7dcc614e99c26af633dd68b74204ae:code",
+    "taskId": "772df110efe9de3a8b7dcc614e99c26af633dd68b74204ae",
+    "member": "DMN",
+    "pccvId": "D10-DMN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T04:45:46.608Z",
+    "base": "9eb41f03c57a997f68cc4085ef8863f7cc35c1dd",
+    "files": [
+      "services/catalog/D10_DMN_EVIDENCE.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "mvn",
         "exitCode": 0
       }
     ],
