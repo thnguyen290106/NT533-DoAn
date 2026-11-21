@@ -1528,6 +1528,12 @@ cd services/catalog &&
 
 - ADMIN trực tiếp thực hiện. Đo ba đường CPU/Mixed/Quote trên runtime a96cfe9dec1d250456b21e1813672b584ac3e71b. R_ref lần lượt 80, 320, 320 req/s. Mỗi bậc dùng warm-up 300 s và lưu dữ liệu phía LOADGEN.
 
+## Bàn giao D08-HXN
+
+- ADMIN trực tiếp thực hiện. Chốt lịch từ ba biên nhận R_ref và ghi SHA-256 trace trước chiến dịch. B0–B4 54 lượt, A1/A3 và hai contrast 41 lượt, A2 9 lượt cùng 60 sweep A4.
+- Ubuntu LOADGEN . · `python3 -m unittest discover -s analysis/tests` · exit 0.
+
+
 
 
 
@@ -1751,6 +1757,57 @@ cd services/catalog &&
       },
       {
         "program": "python3",
+        "exitCode": 0
+      }
+    ],
+    "remoteJobs": []
+  },
+  {
+    "id": "3efe8f41d93a815dddbe5e2e9bf5a47a73f1cd0d9ebee0d9:code",
+    "taskId": "3efe8f41d93a815dddbe5e2e9bf5a47a73f1cd0d9ebee0d9",
+    "member": "HXN",
+    "pccvId": "D08-HXN",
+    "state": "VERIFIED_PENDING_MERGE",
+    "recordedAt": "2026-11-21T02:45:37.451Z",
+    "base": "d65065081ae6e1cd884642c14fb688ce8a2c4b36",
+    "files": [
+      "analysis/analyze.py",
+      "analysis/chart.py",
+      "analysis/mapping.py",
+      "analysis/run.py",
+      "analysis/tests/test_analyze.py",
+      "analysis/tests/test_mapping.py",
+      "analysis/tests/test_run.py",
+      "analysis/trace.py",
+      "load-tests/workload.js",
+      "analysis/pilot.py",
+      "analysis/pilot_gate.py",
+      "analysis/schedule.py",
+      "analysis/summary_report.py",
+      "analysis/tests/test_pilot_gate.py",
+      "analysis/tests/test_pilot_resume.py",
+      "analysis/tests/test_schedule.py",
+      "analysis/tests/test_summary_report.py",
+      "analysis/tests/test_wan.py",
+      "analysis/wan.py",
+      "experiments/D08_SCHEDULE_LOCK.md",
+      "experiments/PROTOCOL_REMOTE_V4.md"
+    ],
+    "tests": [
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "python3",
+        "exitCode": 0
+      },
+      {
+        "program": "k6",
         "exitCode": 0
       }
     ],

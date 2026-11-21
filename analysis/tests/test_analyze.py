@@ -53,3 +53,17 @@ class AnalyzeTests(unittest.TestCase):
             analyze(self.write("requests.jsonl", row, row), ["C1"])
         with self.assertRaisesRegex(ValueError, "unknown instance_id"):
             analyze(self.write("requests.jsonl", row), ["C2"])
+
+    def test_measurement_excludes_warmup_and_keeps_drain_latency(self):
+        def row(index, phase, started, finished):
+            return {"request_id":f"{index:032x}", "phase":phase, "phase_started_utc":"2026-11-18T14:00:10Z",
+                    "started_utc":f"2026-11-18T14:00:{started:02d}Z", "completed_utc":f"2026-11-18T14:00:{finished:02d}Z",
+                    "status":200, "contract_ok":True, "duration_ms":1000*(finished-started), "instance_id":"C1"}
+        requests=self.write("requests.jsonl",row(0,"warmup",8,9),row(1,"measure",10,11),row(2,"measure",19,22))
+        receipt=analyze(requests,["C1","C2"],measure_seconds=10)
+        self.assertEqual(receipt["completed"],2)
+        self.assertEqual(receipt["measurement"]["success_rps"],.1)
+        self.assertEqual(receipt["latency_ms"]["successful"]["p95"],3000)
+        self.assertTrue(receipt["p99_small_sample"])
+        with self.assertRaisesRegex(ValueError,"pending after drain"):
+            analyze(requests,["C1","C2"],measure_seconds=10,drain_seconds=1)

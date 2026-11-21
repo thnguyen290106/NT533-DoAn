@@ -14,6 +14,7 @@ import subprocess
 import time
 from urllib.parse import urlsplit
 
+from analysis.analyze import k6_metrics
 from analysis.trace import FIELDS
 
 
@@ -84,7 +85,13 @@ def preflight(plan, trace, facts, directory):
     public = plan.get('public_dry_run') is True
     if public and plan.get('dry_run') is not True:
         raise ValueError('public ingress is only for the bounded Quote dry run')
-    validate_target(plan['base_url'], 8080 if public else 8081)
+    direct = plan.get('private_catalog') is True
+    if direct:
+        match = re.fullmatch(r'http://127\.0\.0\.1:([1-9][0-9]{3,4})', plan['base_url'])
+        if public or plan.get('scenario') != 'B4' or match is None or not 1024 <= int(match[1]) <= 65535:
+            raise ValueError('B4 requires an allocated local tunnel to Catalog C1')
+    else:
+        validate_target(plan['base_url'], 8080 if public else 8081)
     if not all(re.fullmatch(r'[0-9a-f]{64}', facts[key]) for key in ('config_sha256', 'protocol_sha256')):
         raise ValueError('missing configuration/protocol SHA-256')
     if not re.fullmatch(r'[0-9a-f]{40}', facts['commit']) or not facts['image_digests'] or not all(
@@ -102,6 +109,10 @@ def preflight(plan, trace, facts, directory):
         with trace.open(encoding='utf-8', newline='') as stream:
             if rows > 12 or any(r['profile'] != 'quote' for r in csv.DictReader(stream)):
                 raise ValueError('public dry run accepts at most 12 Quote samples')
+    if direct:
+        with trace.open(encoding='utf-8', newline='') as stream:
+            if any(row['profile'] != 'cpu-fixed' or row['effective_ip'] for row in csv.DictReader(stream)):
+                raise ValueError('B4 requires CPU traces with actual client IP')
     return rows
 
 
@@ -128,17 +139,25 @@ def execute(plan, trace, facts, dest):
             print(error, file=err)
             code = 126
     (dest / 'exit-code.txt').write_text(f'{code}\n', encoding='utf-8')
+    rows = []
     try:
         rows = samples((dest / 'stderr.txt').read_text(encoding='utf-8'))
         indices = {row['request_index'] for row in rows}
-        valid = code == 0 and len(rows) == count and indices == set(range(count)) and (dest / 'k6-raw.json').is_file()
-        if plan.get('dry_run') is True:
-            valid = valid and all(row.get('contract_ok') for row in rows)
+        raw = dest / 'k6-raw.json'
+        valid = code == 0 and len(rows) == count and indices == set(range(count)) and raw.is_file()
         with (dest / 'requests.jsonl').open('w', encoding='utf-8') as output:
             for row in sorted(rows, key=lambda row: row['request_index']):
                 print(json.dumps(row), file=output)
+        if plan.get('dry_run') is True:
+            valid = valid and all(row.get('contract_ok') for row in rows)
+        elif valid:
+            dropped = k6_metrics(raw)['dropped_iterations']
+            manifest['dropped_iterations'] = dropped
+            if dropped or any(row['status'] == 200 and row['contract_ok'] is not True for row in rows):
+                valid = False
+                manifest['invalid_reason'] = ('k6 dropped iterations' if dropped else 'HTTP 200 violated the application contract')
     except (ValueError, KeyError, TypeError) as error:
-        valid, rows = False, []
+        valid = False
         manifest['invalid_reason'] = str(error)
     manifest.update(status='valid' if valid else 'invalid', exit_code=code, completed=len(rows),
                     elapsed_seconds=round(time.monotonic() - started, 3))

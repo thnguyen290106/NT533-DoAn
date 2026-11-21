@@ -17,7 +17,9 @@ def render(directory, instances):
         if Path(filename).name != filename or digest(directory / filename) != expected:
             raise ValueError(f'SHA-256 verification failed: {filename}')
     raw, requests = directory / 'k6-raw.json', directory / 'requests.jsonl'
-    summary = analyze(requests, instances, raw=raw)
+    summary = analyze(requests, instances, raw=raw,
+                      measure_seconds=None if manifest.get('dry_run') else manifest['measure_seconds'],
+                      drain_seconds=manifest.get('drain_seconds', 5))
     if summary['success'] == 0:
         raise ValueError('no successful samples to plot')
     summary['run_id'] = manifest['run_id']
